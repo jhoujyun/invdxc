@@ -1,0 +1,9 @@
+
+{
+  "name": "投資定心艙 | invdxc.com",
+  "short_name": "投資定心艙",
+  "description": "卸下整日波動，聽見時間迴響。專為長線投資者設計的金融心理調節避風港。",
+  "requestFramePermissions": [
+    "microphone"
+  ]
+}

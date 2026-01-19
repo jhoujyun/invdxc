@@ -1,0 +1,100 @@
+
+<!DOCTYPE html>
+<html lang="zh-Hant-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    
+    <!-- Primary Meta Tags -->
+    <title>投資定心艙 | 屏蔽噪音，給長期主義一個家</title>
+    <meta name="title" content="投資定心艙 | invdxc.com">
+    <meta name="description" content="卸下整日的波動，聽見時間的迴響。投資定心艙專為長線投資者設計，提供情緒降噪、五年視界與止語冥想空間，助您在金融噪音中堅守價值。">
+    <link rel="canonical" href="https://invdxc.com" />
+
+    <!-- Open Graph / Facebook -->
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://invdxc.com/">
+    <meta property="og:title" content="投資定心艙 - 長線投資者的金融寧靜空間">
+    <meta property="og:description" content="屏蔽世界噪聲，守住最初遠方。在此安頓投研身心，讓安靜成為您最穩定的收益。">
+    <meta property="og:image" content="https://invdxc.com/og-image.jpg"> <!-- 建議上傳一張 1200x630 的預覽圖 -->
+
+    <!-- Twitter -->
+    <meta property="twitter:card" content="summary_large_image">
+    <meta property="twitter:url" content="https://invdxc.com/">
+    <meta property="twitter:title" content="投資定心艙 | invdxc.com">
+    <meta property="twitter:description" content="卸下整日的波動，聽見時間的迴響。投資定心艙，給長期主義一個家。">
+    <meta property="twitter:image" content="https://invdxc.com/og-image.jpg">
+
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@300;400;500;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Noto Serif TC', serif;
+            margin: 0;
+            overflow-x: hidden;
+            background-color: #f5f5f4;
+            color: #1c1917;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        /* Paper Grain Texture Layer */
+        body::before {
+            content: "";
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            opacity: 0.03;
+            pointer-events: none;
+            z-index: 100;
+            background-image: url('https://www.transparenttextures.com/patterns/asfalt-dark.png');
+        }
+
+        .ink-wash-bg {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: -1;
+            filter: blur(80px);
+            opacity: 0.6;
+        }
+
+        .scrollbar-hide::-webkit-scrollbar {
+            display: none;
+        }
+
+        @keyframes ink-flow {
+            0% { filter: blur(80px) hue-rotate(0deg); opacity: 0.5; }
+            50% { filter: blur(100px) hue-rotate(10deg); opacity: 0.7; }
+            100% { filter: blur(80px) hue-rotate(0deg); opacity: 0.5; }
+        }
+
+        .blob {
+            will-change: transform, filter;
+            animation: ink-flow 15s infinite ease-in-out;
+        }
+    </style>
+<script type="importmap">
+{
+  "imports": {
+    "recharts": "https://esm.sh/recharts@^3.6.0",
+    "react-dom/": "https://esm.sh/react-dom@^19.2.3/",
+    "react/": "https://esm.sh/react@^19.2.3/",
+    "react": "https://esm.sh/react@^19.2.3",
+    "@google/genai": "https://esm.sh/@google/genai@^1.35.0",
+    "lucide-react": "https://esm.sh/lucide-react@^0.562.0",
+    "@vitejs/plugin-react": "https://esm.sh/@vitejs/plugin-react@^5.1.2",
+    "vite": "https://esm.sh/vite@^7.3.1"
+  }
+}
+</script>
+<link rel="stylesheet" href="/index.css">
+</head>
+<body>
+    <div id="root"></div>
+<script type="module" src="/index.tsx"></script>
+</body>
+</html>
