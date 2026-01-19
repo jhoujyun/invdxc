@@ -72,7 +72,7 @@ const InvestmentHeatmap: React.FC = () => {
       }
 
       currentMonth.days.push({
-        dateStr,
+        date: dateStr, // 修改這裡：從 dateStr 改為 date
         level: record ? record.level : 0,
         note: record?.note
       });
@@ -167,7 +167,7 @@ const InvestmentHeatmap: React.FC = () => {
                   <button
                     key={idx}
                     onClick={() => setFocusDay(day)}
-                    className={`w-full aspect-square rounded-sm ${getColor(day.level)} transition-all hover:scale-125 hover:z-10 shadow-sm ${focusDay?.dateStr === day.dateStr ? 'ring-2 ring-indigo-500 ring-offset-2 ring-offset-white/10' : ''}`}
+                    className={`w-full aspect-square rounded-sm ${getColor(day.level)} transition-all hover:scale-125 hover:z-10 shadow-sm ${focusDay?.date === day.date ? 'ring-2 ring-indigo-500 ring-offset-2 ring-offset-white/10' : ''}`}
                   />
                 ))}
               </div>
@@ -192,7 +192,7 @@ const InvestmentHeatmap: React.FC = () => {
           {focusDay ? (
             <div className="relative z-10 animate-in fade-in slide-in-from-left-4">
               <p className="text-[10px] font-black tracking-[0.4em] uppercase text-indigo-300 mb-2">焦點心跡</p>
-              <h4 className="text-2xl font-bold mb-4">{focusDay.dateStr}</h4>
+              <h4 className="text-2xl font-bold mb-4">{focusDay.date}</h4>
               <p className="text-indigo-100 font-medium leading-relaxed italic">
                 {focusDay.note ? `「${focusDay.note}」` : "這一天，你選擇了與時間為友。"}
               </p>
