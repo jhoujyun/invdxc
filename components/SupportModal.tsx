@@ -21,13 +21,13 @@ interface PaymentPlatform {
 
 const PLATFORMS: PaymentPlatform[] = [
   {
-    id: 'bmc',
-    name: 'Buy Me a Coffee',
-    description: '全球創作者首選支持平台',
-    icon: <Coffee size={20} />,
-    color: 'text-amber-600',
-    bgColor: 'bg-amber-50',
-    urlPattern: (a) => `https://www.buymeacoffee.com/yourprofile?amount=${a}`
+    id: 'paypal',
+    name: 'PayPal',
+    description: '全球通用的安全支付方式',
+    icon: <CreditCard size={20} />,
+    color: 'text-blue-600',
+    bgColor: 'bg-blue-50',
+    urlPattern: (a) => `https://www.paypal.me/yourprofile/${a}`
   },
   {
     id: 'kofi',
@@ -37,15 +37,6 @@ const PLATFORMS: PaymentPlatform[] = [
     color: 'text-rose-600',
     bgColor: 'bg-rose-50',
     urlPattern: (a) => `https://ko-fi.com/yourprofile?amount=${a}`
-  },
-  {
-    id: 'paypal',
-    name: 'PayPal',
-    description: '全球通用的安全支付方式',
-    icon: <CreditCard size={20} />,
-    color: 'text-blue-600',
-    bgColor: 'bg-blue-50',
-    urlPattern: (a) => `https://www.paypal.me/yourprofile/${a}`
   }
 ];
 
@@ -101,7 +92,7 @@ const SupportModal: React.FC<SupportModalProps> = ({ isOpen, onClose }) => {
             
             <h2 className="text-2xl font-bold text-slate-900 mb-2 tracking-widest uppercase">護航計劃</h2>
             <p className="text-slate-500 text-sm font-medium mb-8 leading-relaxed">
-              《定心艙》的運作依賴伺服器與 AI 算力。如果您認可這份寧靜，請考慮支持我們的持續維護。
+              《定心艙》的運作依賴伺服器與 AI 算力。如果您認格這份寧靜，請考慮支持我們的持續維護。
             </p>
 
             <div className="grid grid-cols-3 gap-4 w-full mb-8">
