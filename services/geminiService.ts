@@ -2,10 +2,11 @@
 import { GoogleGenAI, Type } from "@google/genai";
 import { DenoisedResult, ChartDataPoint, GroundingSource } from "../types";
 
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-
-// 緩存過期時間：6 小時
+// 缓存过期时间：6 小时
 const CACHE_EXPIRY = 6 * 60 * 60 * 1000;
+
+// 将实例初始化封装在函数内，确保在调用时才读取 API Key，增加部署兼容性
+const getAI = () => new GoogleGenAI({ apiKey: process.env.API_KEY || '' });
 
 const getCachedData = (key: string) => {
   const cached = localStorage.getItem(`cache_${key}`);
@@ -26,6 +27,7 @@ const setCachedData = (key: string, data: any) => {
 };
 
 export const denoiseHeadline = async (headline: string): Promise<DenoisedResult> => {
+  const ai = getAI();
   const response = await ai.models.generateContent({
     model: "gemini-3-flash-preview",
     contents: `請將以下極具煽動性或驚悚的財經新聞標題「降噪」為冷靜的事實描述：\n\n"${headline}"`,
@@ -56,6 +58,7 @@ export const denoiseHeadline = async (headline: string): Promise<DenoisedResult>
 };
 
 export const generateZenWisdom = async (): Promise<string> => {
+  const ai = getAI();
   const response = await ai.models.generateContent({
     model: "gemini-3-flash-preview",
     contents: "請為一位正在面對市場波動的長線投資者寫一段「定心籤文」。30-50字，繁體中文。",
@@ -72,6 +75,7 @@ export const fetchMarketTrend = async (assetQuery: string, startDate: string, en
   const cached = getCachedData(cacheKey);
   if (cached) return cached;
 
+  const ai = getAI();
   const response = await ai.models.generateContent({
     model: "gemini-3-flash-preview",
     contents: `請獲取 ${assetQuery} 從 ${startDate} 到 ${endDate} 的價格數據。請在回覆中包含一個 JSON 數組段落 [{"date": "YYYY-MM", "value": 123}]。`,
