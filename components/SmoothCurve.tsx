@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
 import { AreaChart, Area, XAxis, YAxis, ResponsiveContainer, Tooltip } from 'recharts';
-import { HEALING_QUOTES, MOCK_CHART_DATA } from '../constants';
+import { HEALING_QUOTES, getMockData } from '../constants';
 import { fetchMarketTrend } from '../services/geminiService';
 import { ChartDataPoint, GroundingSource, AssetOption } from '../types';
 import { Loader2, ExternalLink, RefreshCw } from 'lucide-react';
@@ -36,11 +36,12 @@ const SmoothCurve: React.FC = () => {
         setData(sortedData);
         setSources(result.sources);
       } else {
-        setData(MOCK_CHART_DATA);
+        // AI 獲取數據失敗時，使用針對該資產生成的模擬數據
+        setData(getMockData(activeAsset.id));
       }
     } catch (error) {
       console.error(error);
-      setData(MOCK_CHART_DATA);
+      setData(getMockData(activeAsset.id));
     } finally {
       setLoading(false);
     }
@@ -100,6 +101,7 @@ const SmoothCurve: React.FC = () => {
                 />
                 <YAxis hide domain={['auto', 'auto']} />
                 <Tooltip 
+                  formatter={(value: number) => [`${value.toLocaleString()}`, activeAsset.label]}
                   contentStyle={{ 
                     backgroundColor: 'rgba(255, 255, 255, 0.9)', 
                     border: 'none', 
@@ -125,6 +127,9 @@ const SmoothCurve: React.FC = () => {
               <div className="flex flex-col items-start">
                 <span>五年之前</span>
                 <span className="text-indigo-900 text-[10px] mt-1">{chartStart}</span>
+              </div>
+              <div className="flex flex-col items-center">
+                 <span className="text-indigo-500">{activeAsset.label} · 歷史走勢</span>
               </div>
               <div className="flex flex-col items-end">
                 <span>最新收盤</span>
