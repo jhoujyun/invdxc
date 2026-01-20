@@ -45,7 +45,6 @@ const FinancialDashboard: React.FC = () => {
       const ai = getAI();
       const assetLabels = selectedIds.map(id => ASSETS.find(a => a.id === id)?.label).join(', ');
       
-      // 動態獲取當前年月
       const now = new Date();
       const currentYearMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
       
@@ -54,25 +53,31 @@ const FinancialDashboard: React.FC = () => {
         contents: `今天是 ${currentYearMonth}。請利用 Google Search 獲取 ${assetLabels} 過去12個月的收盤價數據（直到當前月份）。請將數據以第一個月為 100 進行歸一化處理。返回一個純 JSON 數組：[{"date": "YYYY-MM", "sp500": 105, "nasdaq": 110, ...}]。`,
         config: { 
           tools: [{ googleSearch: {} }],
-          systemInstruction: "你是一個精準的數據抓取分析師。必須使用搜尋工具獲取真實的、最新的價格數據。只輸出 JSON 格式，不要有任何多餘解釋。" 
+          systemInstruction: "你是一個精準的數據抓取分析師。必須使用搜尋工具獲取真實的、最新的價格數據。只輸出一個 JSON 數組格式，包含 12 個月的數據點。不要有任何多餘解釋。" 
         }
       });
       
       const text = response.text || '';
-      const jsonMatch = text.match(/\[\s*\{[\s\S]*?\}\s*\]/);
-      const data = jsonMatch ? JSON.parse(jsonMatch[0]) : [];
+      // 修正：更穩健地提取 JSON 數組
+      const startIdx = text.indexOf('[');
+      const endIdx = text.lastIndexOf(']');
       
-      if (data.length > 0) {
-        const insightResponse = await ai.models.generateContent({
-          model: 'gemini-3-flash-preview',
-          contents: `分析這些最新數據，特別是最近幾個月的表現：${JSON.stringify(data)}`,
-          config: { systemInstruction: "你是一個優雅且專業的財經分析師。請分析最新的市場趨勢並給予長線投資者的心境建議。使用繁體中文。" }
-        });
+      if (startIdx !== -1 && endIdx !== -1) {
+        const jsonStr = text.substring(startIdx, endIdx + 1);
+        const data = JSON.parse(jsonStr);
         
-        const insight = insightResponse.text || "";
-        setChartData(data);
-        setAiInsight(insight);
-        localStorage.setItem(cacheKey, JSON.stringify({ data, insight, timestamp: Date.now() }));
+        if (Array.isArray(data) && data.length > 0) {
+          const insightResponse = await ai.models.generateContent({
+            model: 'gemini-3-flash-preview',
+            contents: `分析這些最新數據，特別是最近幾個月的表現：${JSON.stringify(data)}`,
+            config: { systemInstruction: "你是一個優雅且專業的財經分析師。請分析最新的市場趨勢並給予長線投資者的心境建議。使用繁體中文。" }
+          });
+          
+          const insight = insightResponse.text || "";
+          setChartData(data);
+          setAiInsight(insight);
+          localStorage.setItem(cacheKey, JSON.stringify({ data, insight, timestamp: Date.now() }));
+        }
       }
     } catch (error) {
       console.error("Dashboard error:", error);
@@ -119,7 +124,7 @@ const FinancialDashboard: React.FC = () => {
               </div>
             </div>
           )}
-          {chartData.length > 0 ? (
+          {chartData && chartData.length > 0 ? (
             <ResponsiveContainer width="100%" height={320}>
               <LineChart data={chartData}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
@@ -128,13 +133,13 @@ const FinancialDashboard: React.FC = () => {
                 <Tooltip contentStyle={{ borderRadius: '1.5rem', border: 'none', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)' }} />
                 <Legend iconType="circle" />
                 {selectedIds.map(id => (
-                  <Line key={id} type="monotone" dataKey={id} name={ASSETS.find(a => a.id === id)?.label} stroke={ASSETS.find(a => a.id === id)?.color} strokeWidth={3} dot={false} />
+                  <Line key={id} type="monotone" dataKey={id} name={ASSETS.find(a => a.id === id)?.label} stroke={ASSETS.find(a => a.id === id)?.color} strokeWidth={3} dot={false} animationDuration={1500} />
                 ))}
               </LineChart>
             </ResponsiveContainer>
           ) : (
              <div className="h-full flex items-center justify-center text-slate-300 italic">
-               暫無數據，請點擊上方按鈕重試
+               {loading ? "" : "暫無數據，請點擊上方按鈕重試"}
              </div>
           )}
         </div>
