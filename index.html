@@ -5,7 +5,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     
-    <!-- Primary Meta Tags -->
     <title>投資定心艙 | 屏蔽噪音，給長期主義一個家</title>
     <meta name="title" content="投資定心艙 | invdxc.com">
     <meta name="description" content="卸下整日的波動，聽見時間的迴響。投資定心艙專為長線投資者設計，助您在金融噪音中堅守價值。">
@@ -23,7 +22,6 @@
             -webkit-font-smoothing: antialiased;
         }
 
-        /* Paper Grain Texture Layer */
         body::before {
             content: "";
             position: fixed;
@@ -65,5 +63,7 @@
 </head>
 <body>
     <div id="root"></div>
+    <!-- 显式引入入口文件，修复部分环境下的加载问题 -->
+    <script type="module" src="./index.tsx"></script>
 </body>
 </html>

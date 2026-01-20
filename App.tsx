@@ -18,8 +18,10 @@ const CustomLogo = () => (
   <svg 
     viewBox="0 0 10000 10000" 
     className="w-full h-full"
-    // Fix: Changed 'optimizeQuality' to 'auto' for imageRendering to comply with React CSSProperties types
-    style={{ shapeRendering: 'geometricPrecision', textRendering: 'geometricPrecision', imageRendering: 'auto', fillRule: 'evenodd', clipRule: 'evenodd' }}
+    // 修复：将 fillRule 和 clipRule 移出 style，作为 React Props 传入
+    fillRule="evenodd"
+    clipRule="evenodd"
+    style={{ shapeRendering: 'geometricPrecision', textRendering: 'geometricPrecision', imageRendering: 'auto' }}
   >
     <g id="圖層_x0020_1">
       <path style={{ fill: '#517671' }} d="M4141.87 981.97l-1.93 1083.89 -0.11 1619.37c0,220.21 -30.8,266.73 69.27,465.95 115.48,229.92 271.27,444.97 475.3,604.08 76.54,59.69 260.34,176 350.63,200.13l3766.39 3.47c11.72,-1151.53 -517.92,-2199.01 -1361.88,-2958.91 -724.49,-652.33 -1334.64,-876.22 -2250.27,-1002.4 -164.77,-22.71 -887.78,-32.88 -1047.4,-15.58z"/>
@@ -64,16 +66,6 @@ const App: React.FC = () => {
     navigator.clipboard.writeText(text);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
-  };
-
-  // 靜態樣式映射表，避免 Tailwind 在生產環境移除 CSS
-  const sectionStyles: Record<string, string> = {
-    teal: "bg-teal-50/40 hover:bg-teal-50/70 border-teal-100/50 hover:border-teal-200 text-teal-700 text-teal-900",
-    violet: "bg-violet-50/40 hover:bg-violet-50/70 border-violet-100/50 hover:border-violet-200 text-violet-700 text-violet-900",
-    indigo: "bg-indigo-50/40 hover:bg-indigo-50/70 border-indigo-100/50 hover:border-indigo-200 text-indigo-700 text-indigo-900",
-    emerald: "bg-emerald-50/40 hover:bg-emerald-50/70 border-emerald-100/50 hover:border-emerald-200 text-emerald-700 text-emerald-900",
-    amber: "bg-amber-50/40 hover:bg-amber-50/70 border-amber-100/50 hover:border-amber-200 text-amber-700 text-amber-900",
-    rose: "bg-rose-50/40 hover:bg-rose-50/70 border-rose-100/50 hover:border-rose-200 text-rose-700 text-rose-900"
   };
 
   const renderContent = () => {
@@ -122,43 +114,22 @@ const App: React.FC = () => {
 
             <nav className="grid grid-cols-2 md:grid-cols-3 gap-4 md:gap-8 w-full max-w-4xl mb-16 md:mb-24">
               {[
-                { id: AppSection.CURVE, label: '五年視界', icon: LineChart, color: 'teal' },
-                { id: AppSection.DASHBOARD, label: '資產對比', icon: BarChart3, color: 'violet' },
-                { id: AppSection.DENOISER, label: '情緒降噪', icon: Zap, color: 'indigo' },
-                { id: AppSection.CALENDAR, label: '定投心跡', icon: Calendar, color: 'emerald' },
-                { id: AppSection.TIME_CAPSULE, label: '時光封印', icon: Anchor, color: 'amber' },
-                { id: AppSection.MEDITATION, label: '止語冥想', icon: Timer, color: 'rose' }
+                { id: AppSection.CURVE, label: '五年視界', icon: LineChart, color: 'teal', bg: 'bg-teal-50/40 hover:bg-teal-50/70 border-teal-100/50 hover:border-teal-200', text: 'text-teal-700', labelText: 'text-teal-900' },
+                { id: AppSection.DASHBOARD, label: '資產對比', icon: BarChart3, color: 'violet', bg: 'bg-violet-50/40 hover:bg-violet-50/70 border-violet-100/50 hover:border-violet-200', text: 'text-violet-700', labelText: 'text-violet-900' },
+                { id: AppSection.DENOISER, label: '情緒降噪', icon: Zap, color: 'indigo', bg: 'bg-indigo-50/40 hover:bg-indigo-50/70 border-indigo-100/50 hover:border-indigo-200', text: 'text-indigo-700', labelText: 'text-indigo-900' },
+                { id: AppSection.CALENDAR, label: '定投心跡', icon: Calendar, color: 'emerald', bg: 'bg-emerald-50/40 hover:bg-emerald-50/70 border-emerald-100/50 hover:border-emerald-200', text: 'text-emerald-700', labelText: 'text-emerald-900' },
+                { id: AppSection.TIME_CAPSULE, label: '時光封印', icon: Anchor, color: 'amber', bg: 'bg-amber-50/40 hover:bg-amber-50/70 border-amber-100/50 hover:border-amber-200', text: 'text-amber-700', labelText: 'text-amber-900' },
+                { id: AppSection.MEDITATION, label: '止語冥想', icon: Timer, color: 'rose', bg: 'bg-rose-50/40 hover:bg-rose-50/70 border-rose-100/50 hover:border-rose-200', text: 'text-rose-700', labelText: 'text-rose-900' }
               ].map((item) => (
                 <button 
                   key={item.id}
                   onClick={() => setActiveSection(item.id)}
-                  className={`group flex flex-col items-center gap-3 md:gap-6 p-6 md:p-10 transition-all rounded-[1.8rem] md:rounded-[3rem] backdrop-blur-md border shadow-sm hover:shadow-xl hover:-translate-y-1 ${
-                    item.color === 'teal' ? 'bg-teal-50/40 hover:bg-teal-50/70 border-teal-100/50 hover:border-teal-200' :
-                    item.color === 'violet' ? 'bg-violet-50/40 hover:bg-violet-50/70 border-violet-100/50 hover:border-violet-200' :
-                    item.color === 'indigo' ? 'bg-indigo-50/40 hover:bg-indigo-50/70 border-indigo-100/50 hover:border-indigo-200' :
-                    item.color === 'emerald' ? 'bg-emerald-50/40 hover:bg-emerald-50/70 border-emerald-100/50 hover:border-emerald-200' :
-                    item.color === 'amber' ? 'bg-amber-50/40 hover:bg-amber-50/70 border-amber-100/50 hover:border-amber-200' :
-                    'bg-rose-50/40 hover:bg-rose-50/70 border-rose-100/50 hover:border-rose-200'
-                  }`}
+                  className={`group flex flex-col items-center gap-3 md:gap-6 p-6 md:p-10 transition-all rounded-[1.8rem] md:rounded-[3rem] backdrop-blur-md border shadow-sm hover:shadow-xl hover:-translate-y-1 ${item.bg}`}
                 >
-                  <div className={`p-4 md:p-6 bg-white rounded-2xl md:rounded-[2rem] group-hover:scale-110 transition-transform ${
-                    item.color === 'teal' ? 'text-teal-700' :
-                    item.color === 'violet' ? 'text-violet-700' :
-                    item.color === 'indigo' ? 'text-indigo-700' :
-                    item.color === 'emerald' ? 'text-emerald-700' :
-                    item.color === 'amber' ? 'text-amber-700' :
-                    'text-rose-700'
-                  }`}>
+                  <div className={`p-4 md:p-6 bg-white rounded-2xl md:rounded-[2rem] group-hover:scale-110 transition-transform ${item.text}`}>
                     <item.icon size={24} className="md:w-10 md:h-10" />
                   </div>
-                  <span className={`font-bold tracking-widest text-xs md:text-base ${
-                    item.color === 'teal' ? 'text-teal-900' :
-                    item.color === 'violet' ? 'text-violet-900' :
-                    item.color === 'indigo' ? 'text-indigo-900' :
-                    item.color === 'emerald' ? 'text-emerald-900' :
-                    item.color === 'amber' ? 'text-amber-900' :
-                    'text-rose-900'
-                  }`}>{item.label}</span>
+                  <span className={`font-bold tracking-widest text-xs md:text-base ${item.labelText}`}>{item.label}</span>
                 </button>
               ))}
             </nav>
