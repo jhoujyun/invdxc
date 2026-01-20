@@ -48,11 +48,15 @@ const FinancialDashboard: React.FC = () => {
         contents: `請檢索 ${selectedIds.map(id => ASSETS.find(a => a.id === id)?.label).join(', ')} 過去12個月價格走勢並歸一化。返回 JSON：[{"date": "YYYY-MM", "assetId": value}]`,
         config: { 
             tools: [{ googleSearch: {} }],
-            responseMimeType: 'application/json'
+            // Note: responseMimeType: 'application/json' is omitted here because googleSearch grounding 
+            // can sometimes inject citations that break pure JSON structure.
         }
       });
       
-      const data = JSON.parse(response.text || '[]');
+      // Fix: Use regex to safely extract the JSON array from the response text
+      const text = response.text || '';
+      const jsonMatch = text.match(/\[\s*\{.*\}\s*\]/s);
+      const data = jsonMatch ? JSON.parse(jsonMatch[0]) : [];
       
       const insightResponse = await ai.models.generateContent({
         model: 'gemini-3-flash-preview',
