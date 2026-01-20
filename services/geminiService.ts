@@ -6,34 +6,72 @@ const CACHE_EXPIRY = 6 * 60 * 60 * 1000;
 
 export const getAI = () => {
   const apiKey = process.env.API_KEY;
-  if (!apiKey) {
-    console.warn("API_KEY is missing. AI features may not work.");
-  }
   return new GoogleGenAI({ apiKey: apiKey || '' });
 };
 
-const getCachedData = (key: string) => {
-  try {
-    const cached = localStorage.getItem(`cache_${key}`);
-    if (!cached) return null;
-    const { data, timestamp } = JSON.parse(cached);
-    if (Date.now() - timestamp > CACHE_EXPIRY) {
-      localStorage.removeItem(`cache_${key}`);
-      return null;
-    }
-    return data;
-  } catch (e) {
-    return null;
+export const fetchMarketTrend = async (assetQuery: string, startDate: string, endDate: string): Promise<{ data: ChartDataPoint[], sources: GroundingSource[] }> => {
+  const cacheKey = `trend_v6_${assetQuery}_${startDate}`;
+  const saved = localStorage.getItem(cacheKey);
+  if (saved) {
+    const { data, sources, timestamp } = JSON.parse(saved);
+    if (Date.now() - timestamp < CACHE_EXPIRY) return { data, sources };
   }
-};
 
-const setCachedData = (key: string, data: any) => {
   try {
-    localStorage.setItem(`cache_${key}`, JSON.stringify({
-      data,
-      timestamp: Date.now()
-    }));
-  } catch (e) {}
+    const ai = getAI();
+    const now = new Date();
+    const todayStr = now.toISOString().split('T')[0];
+    
+    // 策略：要求 AI 提供關鍵時間點的真實價格，由前端進行平滑處理，避免 AI 隨機生成 60 個錯誤點
+    const prompt = `
+      現在時間是 ${todayStr}。
+      任務：獲取「${assetQuery}」在以下 6 個時間點的真實歷史收盤價（USD）：
+      1. ${startDate} (5年前)
+      2. 3年前
+      3. 1年前
+      4. 6個月前
+      5. 3個月前
+      6. ${todayStr} (今天/最新)
+
+      要求：
+      - 必須使用 Google Search 獲取最新的「真實市場數據」。
+      - 嚴禁預測未來，嚴禁產生 ${todayStr} 之後的日期。
+      - 只返回 JSON Array: [{"date": "YYYY-MM-DD", "value": number}]
+      - 不要包含任何解釋文字。
+    `;
+
+    const response = await ai.models.generateContent({
+      model: "gemini-3-flash-preview",
+      contents: prompt,
+      config: {
+        tools: [{ googleSearch: {} }],
+        systemInstruction: "你是一個嚴謹的財經數據庫接口，只負責抓取並回傳真實的歷史收盤價格，不進行任何預測。"
+      }
+    });
+
+    const sources: GroundingSource[] = response.candidates?.[0]?.groundingMetadata?.groundingChunks
+      ?.map((chunk: any) => chunk.web)
+      .filter((web: any) => web && web.uri) || [];
+
+    const text = response.text || '';
+    const match = text.match(/\[\s*\{[\s\S]*\}\s*\]/);
+    
+    if (match) {
+      const rawPoints = JSON.parse(match[0]);
+      // 排序並過濾掉未來的日期（安全檢查）
+      const validPoints = rawPoints
+        .filter((p: any) => p.date <= todayStr)
+        .sort((a: any, b: any) => a.date.localeCompare(b.date));
+      
+      localStorage.setItem(cacheKey, JSON.stringify({ data: validPoints, sources, timestamp: Date.now() }));
+      return { data: validPoints, sources };
+    }
+    
+    return { data: [], sources: [] };
+  } catch (e) {
+    console.error("fetchMarketTrend error:", e);
+    return { data: [], sources: [] };
+  }
 };
 
 export const denoiseHeadline = async (headline: string): Promise<DenoisedResult> => {
@@ -73,48 +111,5 @@ export const generateZenWisdom = async (): Promise<string> => {
     return response.text || "心若不動，萬風奈何。";
   } catch (e) {
     return "心若不動，萬風奈何。";
-  }
-};
-
-export const fetchMarketTrend = async (assetQuery: string, startDate: string, endDate: string): Promise<{ data: ChartDataPoint[], sources: GroundingSource[] }> => {
-  const cacheKey = `trend_${assetQuery}_${startDate}`;
-  const cached = getCachedData(cacheKey);
-  if (cached) return cached;
-
-  try {
-    const ai = getAI();
-    const now = new Date();
-    const currentContext = `今天是 ${now.getFullYear()} 年 ${now.getMonth() + 1} 月。`;
-    
-    const response = await ai.models.generateContent({
-      model: "gemini-3-flash-preview",
-      contents: `${currentContext} 請獲取 ${assetQuery} 從 ${startDate} 到 ${endDate} 的每月真實價格數據。返回 JSON 數組：[{"date": "YYYY-MM", "value": number}]。請務必使用 Google Search 獲取最新的數據，不要使用過時的訓練數據。`,
-      config: {
-        tools: [{ googleSearch: {} }],
-        systemInstruction: "你是一個精準的財經數據分析師，擅長從 Google Search 中提取最新的市場價格。只返回純 JSON。"
-      }
-    });
-
-    const sources: GroundingSource[] = response.candidates?.[0]?.groundingMetadata?.groundingChunks
-      ?.map((chunk: any) => chunk.web)
-      .filter((web: any) => web && web.uri) || [];
-
-    const text = response.text || '';
-    // 修正：使用更穩健的方式提取 JSON 數組（尋找第一個 [ 和最後一個 ] 之間的內容）
-    const startIdx = text.indexOf('[');
-    const endIdx = text.lastIndexOf(']');
-    
-    if (startIdx !== -1 && endIdx !== -1) {
-      const jsonStr = text.substring(startIdx, endIdx + 1);
-      const data = JSON.parse(jsonStr);
-      const result = { data, sources };
-      if (data.length > 5) setCachedData(cacheKey, result);
-      return result;
-    }
-    
-    return { data: [], sources: [] };
-  } catch (e) {
-    console.error("fetchMarketTrend error:", e);
-    return { data: [], sources: [] };
   }
 };
