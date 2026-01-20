@@ -2,10 +2,8 @@
 import { GoogleGenAI, Type } from "@google/genai";
 import { DenoisedResult, ChartDataPoint, GroundingSource } from "../types";
 
-// 缓存过期时间：6 小时
 const CACHE_EXPIRY = 6 * 60 * 60 * 1000;
 
-// 将实例初始化封装在函数内，确保在调用时才读取 API Key，增加部署兼容性
 export const getAI = () => {
   const apiKey = process.env.API_KEY;
   if (!apiKey) {
@@ -43,9 +41,9 @@ export const denoiseHeadline = async (headline: string): Promise<DenoisedResult>
     const ai = getAI();
     const response = await ai.models.generateContent({
       model: "gemini-3-flash-preview",
-      contents: `請將以下極具煽動性或驚悚的財經新聞標題「降噪」為冷靜的事實描述：\n\n"${headline}"`,
+      contents: `請將以下標題「降噪」為事實描述：\n\n"${headline}"`,
       config: {
-        systemInstruction: "你是一個專業的長線投資心理導師。你的任務是剝離財經新聞中的情緒化詞彙，將其還原為中性的、事實性的市場動態描述。請務必使用「繁體中文」輸出。",
+        systemInstruction: "你是一個專業的長線投資心理導師。繁體中文輸出。",
         responseMimeType: "application/json",
         responseSchema: {
           type: Type.OBJECT,
@@ -60,11 +58,7 @@ export const denoiseHeadline = async (headline: string): Promise<DenoisedResult>
     });
     return JSON.parse(response.text || '{}') as DenoisedResult;
   } catch (e) {
-    return {
-      calmDescription: "市場正在進行短期定價調整。",
-      emotionLevel: 5,
-      mindsetTip: "波動是市場的常態，請保持呼吸平穩。"
-    };
+    return { calmDescription: "市場正在進行短期調整。", emotionLevel: 5, mindsetTip: "請保持平穩。" };
   }
 };
 
@@ -73,13 +67,10 @@ export const generateZenWisdom = async (): Promise<string> => {
     const ai = getAI();
     const response = await ai.models.generateContent({
       model: "gemini-3-flash-preview",
-      contents: "請為一位正在面對市場波動的長線投資者寫一段「定力籤文」。30-50字，繁體中文。",
-      config: {
-        systemInstruction: "你是一位精通東方禪修與長線投資哲學的大師。你的籤文應該讓人瞬間平靜。",
-        temperature: 0.9,
-      }
+      contents: "請提供一段投資定心籤文。30字，繁體中文。",
+      config: { systemInstruction: "你是一位禪修與投資大師。", temperature: 0.9 }
     });
-    return response.text || "流水不爭先，爭的是滔滔不絕。";
+    return response.text || "心若不動，萬風奈何。";
   } catch (e) {
     return "心若不動，萬風奈何。";
   }
@@ -92,11 +83,16 @@ export const fetchMarketTrend = async (assetQuery: string, startDate: string, en
 
   try {
     const ai = getAI();
+    // 動態獲取當前日期
+    const now = new Date();
+    const currentContext = `今天是 ${now.getFullYear()} 年 ${now.getMonth() + 1} 月。`;
+    
     const response = await ai.models.generateContent({
       model: "gemini-3-flash-preview",
-      contents: `請獲取 ${assetQuery} 從 ${startDate} 到 ${endDate} 的價格數據。請在回覆中包含一個 JSON 數組段落 [{"date": "YYYY-MM", "value": 123}]。`,
+      contents: `${currentContext} 請獲取 ${assetQuery} 從 ${startDate} 到 ${endDate} 的每月真實價格數據。返回 JSON 數組：[{"date": "YYYY-MM", "value": number}]。請務必使用 Google Search 獲取最新的數據，不要使用過時的訓練數據。`,
       config: {
         tools: [{ googleSearch: {} }],
+        systemInstruction: "你是一個精準的財經數據分析師，擅長從 Google Search 中提取最新的市場價格。只返回純 JSON。"
       }
     });
 
@@ -105,13 +101,14 @@ export const fetchMarketTrend = async (assetQuery: string, startDate: string, en
       .filter((web: any) => web && web.uri) || [];
 
     const text = response.text || '';
-    const jsonMatch = text.match(/\[\s*\{.*\}\s*\]/s);
+    const jsonMatch = text.match(/\[\s*\{[\s\S]*?\}\s*\]/);
     const data = jsonMatch ? JSON.parse(jsonMatch[0]) : [];
     
     const result = { data, sources };
-    if (data.length > 0) setCachedData(cacheKey, result);
+    if (data.length > 5) setCachedData(cacheKey, result);
     return result;
   } catch (e) {
+    console.error("fetchMarketTrend error:", e);
     return { data: [], sources: [] };
   }
 };
