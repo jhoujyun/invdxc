@@ -83,7 +83,6 @@ export const fetchMarketTrend = async (assetQuery: string, startDate: string, en
 
   try {
     const ai = getAI();
-    // 動態獲取當前日期
     const now = new Date();
     const currentContext = `今天是 ${now.getFullYear()} 年 ${now.getMonth() + 1} 月。`;
     
@@ -101,12 +100,19 @@ export const fetchMarketTrend = async (assetQuery: string, startDate: string, en
       .filter((web: any) => web && web.uri) || [];
 
     const text = response.text || '';
-    const jsonMatch = text.match(/\[\s*\{[\s\S]*?\}\s*\]/);
-    const data = jsonMatch ? JSON.parse(jsonMatch[0]) : [];
+    // 修正：使用更穩健的方式提取 JSON 數組（尋找第一個 [ 和最後一個 ] 之間的內容）
+    const startIdx = text.indexOf('[');
+    const endIdx = text.lastIndexOf(']');
     
-    const result = { data, sources };
-    if (data.length > 5) setCachedData(cacheKey, result);
-    return result;
+    if (startIdx !== -1 && endIdx !== -1) {
+      const jsonStr = text.substring(startIdx, endIdx + 1);
+      const data = JSON.parse(jsonStr);
+      const result = { data, sources };
+      if (data.length > 5) setCachedData(cacheKey, result);
+      return result;
+    }
+    
+    return { data: [], sources: [] };
   } catch (e) {
     console.error("fetchMarketTrend error:", e);
     return { data: [], sources: [] };
