@@ -14,19 +14,17 @@ import { generateZenWisdom } from './services/geminiService';
 import { LineChart, Zap, Calendar, Heart, Quote, Share2, Check, Timer, Home, Info, X, Sparkles, Loader2, BarChart3, Anchor } from 'lucide-react';
 import { HEALING_QUOTES } from './constants';
 
-// 直接嵌入您設計的 SVG Logo，並將顏色對齊品牌色
 const CustomLogo = () => (
   <svg 
     viewBox="0 0 10000 10000" 
     className="w-full h-full"
-    style={{ shapeRendering: 'geometricPrecision', textRendering: 'geometricPrecision', imageRendering: 'optimizeQuality', fillRule: 'evenodd', clipRule: 'evenodd' }}
+    // Fix: Changed 'optimizeQuality' to 'auto' for imageRendering to comply with React CSSProperties types
+    style={{ shapeRendering: 'geometricPrecision', textRendering: 'geometricPrecision', imageRendering: 'auto', fillRule: 'evenodd', clipRule: 'evenodd' }}
   >
     <g id="圖層_x0020_1">
-      {/* 墨跡部分使用 #517671 */}
       <path style={{ fill: '#517671' }} d="M4141.87 981.97l-1.93 1083.89 -0.11 1619.37c0,220.21 -30.8,266.73 69.27,465.95 115.48,229.92 271.27,444.97 475.3,604.08 76.54,59.69 260.34,176 350.63,200.13l3766.39 3.47c11.72,-1151.53 -517.92,-2199.01 -1361.88,-2958.91 -724.49,-652.33 -1334.64,-876.22 -2250.27,-1002.4 -164.77,-22.71 -887.78,-32.88 -1047.4,-15.58z"/>
       <path style={{ fill: '#517671' }} d="M4146.44 9058.91c1307.14,43.32 2298.86,-124.94 3291.99,-1025.76 381.43,-345.98 710.07,-754.93 944.38,-1215.4 244.16,-479.81 445.85,-1208.94 414.89,-1745.91 -157.42,-1.39 -3688.06,-16.98 -3771.67,9.91 -332.83,107.02 -663.41,488.17 -817.48,801.41 -95.69,194.54 -65.95,265.3 -65.96,477.57l3.85 2698.18z"/>
       <path style={{ fill: '#517671' }} d="M2976.77 5013.15c38.39,-22.86 198.53,-67.37 270.88,-103.63 249.04,-124.84 432.17,-292.89 589.12,-525.34 50.36,-74.58 96.92,-157.23 137.67,-237.44 74.87,-147.39 63.9,-141.94 63.87,-308.96 -0.05,-245 -1.19,-490.31 0.07,-740.57l-2377.06 2.3 2.09 5961.14 2373.16 -5.36c21.47,-403.78 1.74,-864.63 1.74,-1274.67l0 -1607.65c0.1,-142.97 10.34,-135.82 -52.4,-262.61 -67.75,-136.89 -146.44,-270.13 -244.86,-387.61 -106.65,-127.31 -196.99,-216.41 -336.86,-308.9 -63.52,-42.01 -134.87,-81.11 -204.51,-111.86 -45,-19.87 -205.25,-63.71 -222.91,-88.84z"/>
-      {/* 印章部分使用 #BA6E54 */}
       <polygon style={{ fill: '#BA6E54' }} points="1663.23,2995.24 4041.28,2989.43 4038.87,976.01 1660.56,978.68 "/>
     </g>
   </svg>
@@ -66,6 +64,16 @@ const App: React.FC = () => {
     navigator.clipboard.writeText(text);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
+  };
+
+  // 靜態樣式映射表，避免 Tailwind 在生產環境移除 CSS
+  const sectionStyles: Record<string, string> = {
+    teal: "bg-teal-50/40 hover:bg-teal-50/70 border-teal-100/50 hover:border-teal-200 text-teal-700 text-teal-900",
+    violet: "bg-violet-50/40 hover:bg-violet-50/70 border-violet-100/50 hover:border-violet-200 text-violet-700 text-violet-900",
+    indigo: "bg-indigo-50/40 hover:bg-indigo-50/70 border-indigo-100/50 hover:border-indigo-200 text-indigo-700 text-indigo-900",
+    emerald: "bg-emerald-50/40 hover:bg-emerald-50/70 border-emerald-100/50 hover:border-emerald-200 text-emerald-700 text-emerald-900",
+    amber: "bg-amber-50/40 hover:bg-amber-50/70 border-amber-100/50 hover:border-amber-200 text-amber-700 text-amber-900",
+    rose: "bg-rose-50/40 hover:bg-rose-50/70 border-rose-100/50 hover:border-rose-200 text-rose-700 text-rose-900"
   };
 
   const renderContent = () => {
@@ -124,12 +132,33 @@ const App: React.FC = () => {
                 <button 
                   key={item.id}
                   onClick={() => setActiveSection(item.id)}
-                  className={`group flex flex-col items-center gap-3 md:gap-6 p-6 md:p-10 bg-white/30 hover:bg-white/60 transition-all rounded-[1.8rem] md:rounded-[3rem] backdrop-blur-md border border-white shadow-sm hover:shadow-xl hover:-translate-y-1`}
+                  className={`group flex flex-col items-center gap-3 md:gap-6 p-6 md:p-10 transition-all rounded-[1.8rem] md:rounded-[3rem] backdrop-blur-md border shadow-sm hover:shadow-xl hover:-translate-y-1 ${
+                    item.color === 'teal' ? 'bg-teal-50/40 hover:bg-teal-50/70 border-teal-100/50 hover:border-teal-200' :
+                    item.color === 'violet' ? 'bg-violet-50/40 hover:bg-violet-50/70 border-violet-100/50 hover:border-violet-200' :
+                    item.color === 'indigo' ? 'bg-indigo-50/40 hover:bg-indigo-50/70 border-indigo-100/50 hover:border-indigo-200' :
+                    item.color === 'emerald' ? 'bg-emerald-50/40 hover:bg-emerald-50/70 border-emerald-100/50 hover:border-emerald-200' :
+                    item.color === 'amber' ? 'bg-amber-50/40 hover:bg-amber-50/70 border-amber-100/50 hover:border-amber-200' :
+                    'bg-rose-50/40 hover:bg-rose-50/70 border-rose-100/50 hover:border-rose-200'
+                  }`}
                 >
-                  <div className={`p-4 md:p-6 bg-white rounded-2xl md:rounded-[2rem] group-hover:scale-110 transition-transform`}>
-                    <item.icon size={24} className="md:w-10 md:h-10 text-slate-700" />
+                  <div className={`p-4 md:p-6 bg-white rounded-2xl md:rounded-[2rem] group-hover:scale-110 transition-transform ${
+                    item.color === 'teal' ? 'text-teal-700' :
+                    item.color === 'violet' ? 'text-violet-700' :
+                    item.color === 'indigo' ? 'text-indigo-700' :
+                    item.color === 'emerald' ? 'text-emerald-700' :
+                    item.color === 'amber' ? 'text-amber-700' :
+                    'text-rose-700'
+                  }`}>
+                    <item.icon size={24} className="md:w-10 md:h-10" />
                   </div>
-                  <span className="text-slate-900 font-bold tracking-widest text-xs md:text-base">{item.label}</span>
+                  <span className={`font-bold tracking-widest text-xs md:text-base ${
+                    item.color === 'teal' ? 'text-teal-900' :
+                    item.color === 'violet' ? 'text-violet-900' :
+                    item.color === 'indigo' ? 'text-indigo-900' :
+                    item.color === 'emerald' ? 'text-emerald-900' :
+                    item.color === 'amber' ? 'text-amber-900' :
+                    'text-rose-900'
+                  }`}>{item.label}</span>
                 </button>
               ))}
             </nav>
@@ -161,7 +190,7 @@ const App: React.FC = () => {
           <div className="max-w-3xl w-full px-6 py-6 md:py-12 animate-in fade-in slide-in-from-bottom-8">
             <h2 className="text-3xl md:text-4xl font-bold mb-8 tracking-widest text-center" style={{ color: '#BA6E54' }}>關於投資定心艙</h2>
             <div className="bg-white/60 backdrop-blur-xl rounded-[2.5rem] md:rounded-[3rem] p-8 md:p-12 border border-white shadow-2xl space-y-6 text-slate-700 leading-relaxed text-base md:text-lg">
-              <p>《投資定心艙》誕生於對現代金融噪音的反思。在高頻交易時代，我們為長期主義者創造一個暫時逃離波動的避風港。</p>
+              <p>《投資定心艙》誕生於對現代金融噪音的反思。我們為長期主義者提供一個心靈避風港，協助投資者在波動中找回內心的秩序。</p>
               <button 
                 onClick={() => setActiveSection(AppSection.HOME)}
                 className="w-full py-4 mt-10 text-white rounded-full font-bold uppercase tracking-widest shadow-xl"
