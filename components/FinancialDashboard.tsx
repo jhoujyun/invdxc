@@ -1,8 +1,8 @@
 
 import React, { useState, useEffect } from 'react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
-import { Loader2, TrendingUp, BarChart3, Info, Sparkles } from 'lucide-react';
-import { GoogleGenAI } from "@google/genai";
+import { Loader2, BarChart3 } from 'lucide-react';
+import { getAI } from '../services/geminiService';
 import { AssetOption } from '../types';
 
 const ASSETS: AssetOption[] = [
@@ -27,33 +27,28 @@ const FinancialDashboard: React.FC = () => {
   const fetchComparisonData = async () => {
     if (selectedIds.length === 0) return;
     
-    // 檢查緩存
     const cacheKey = `comp_${selectedIds.sort().join('_')}`;
     const cached = localStorage.getItem(cacheKey);
     if (cached) {
-      const { data, insight, timestamp } = JSON.parse(cached);
-      if (Date.now() - timestamp < 12 * 60 * 60 * 1000) { // 12小時緩存
-        setChartData(data);
-        setAiInsight(insight);
-        return;
-      }
+      try {
+        const { data, insight, timestamp } = JSON.parse(cached);
+        if (Date.now() - timestamp < 12 * 60 * 60 * 1000) {
+          setChartData(data);
+          setAiInsight(insight);
+          return;
+        }
+      } catch (e) {}
     }
 
     setLoading(true);
-    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-    
     try {
+      const ai = getAI();
       const response = await ai.models.generateContent({
         model: 'gemini-3-flash-preview',
         contents: `請檢索 ${selectedIds.map(id => ASSETS.find(a => a.id === id)?.label).join(', ')} 過去12個月價格走勢並歸一化。返回 JSON：[{"date": "YYYY-MM", "assetId": value}]`,
-        config: { 
-            tools: [{ googleSearch: {} }],
-            // Note: responseMimeType: 'application/json' is omitted here because googleSearch grounding 
-            // can sometimes inject citations that break pure JSON structure.
-        }
+        config: { tools: [{ googleSearch: {} }] }
       });
       
-      // Fix: Use regex to safely extract the JSON array from the response text
       const text = response.text || '';
       const jsonMatch = text.match(/\[\s*\{.*\}\s*\]/s);
       const data = jsonMatch ? JSON.parse(jsonMatch[0]) : [];
@@ -68,11 +63,9 @@ const FinancialDashboard: React.FC = () => {
       setChartData(data);
       setAiInsight(insight);
       
-      // 寫入緩存
       localStorage.setItem(cacheKey, JSON.stringify({ data, insight, timestamp: Date.now() }));
-
     } catch (error) {
-      console.error("Dashboard fetch error:", error);
+      console.error("Dashboard error:", error);
     } finally {
       setLoading(false);
     }

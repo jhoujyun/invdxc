@@ -1,7 +1,7 @@
 
 import React, { useState } from 'react';
-import { Mail, Send, History, Sparkles, Loader2, ScrollText, Anchor } from 'lucide-react';
-import { GoogleGenAI } from "@google/genai";
+import { Mail, Loader2, ScrollText, Anchor, History } from 'lucide-react';
+import { getAI } from '../services/geminiService';
 
 const TimeCapsule: React.FC = () => {
   const [message, setMessage] = useState('');
@@ -13,15 +13,15 @@ const TimeCapsule: React.FC = () => {
     if (!message.trim()) return;
     setLoading(true);
     
-    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-    const prompt = `我是一位在 2024 年感到焦慮的投資者，我現在想對十年後的自己說：\n\n"${message}"\n\n請你扮演「2034 年已經財務自由且心境平和的、未來的我」，寫一封回信給現在的我。
-    要求：
-    1. 語氣要充滿慈悲、平和與智慧。
-    2. 告訴我，從十年的維度回頭看，現在這些波動（如 AI 泡沫、通脹、戰爭等）在時間長河中意味著什麼。
-    3. 提醒我守住長線價值的初衷。
-    4. 字數約 150-200 字，繁體中文。`;
-
     try {
+      const ai = getAI();
+      const prompt = `我是一位在 2024 年感到焦慮的投資者，我現在想對十年後的自己說：\n\n"${message}"\n\n請你扮演「2034 年已經財務自由且心境平和的、未來的我」，寫一封回信給現在的我。
+      要求：
+      1. 語氣要充滿慈悲、平和與智慧。
+      2. 告訴我，從十年的維度回頭看，現在這些波動（如 AI 泡沫、通脹、戰爭等）在時間長河中意味著什麼。
+      3. 提醒我守住長線價值的初衷。
+      4. 字數約 150-200 字，繁體中文。`;
+
       const result = await ai.models.generateContent({
         model: 'gemini-3-flash-preview',
         contents: prompt,
@@ -80,7 +80,6 @@ const TimeCapsule: React.FC = () => {
         </div>
       ) : (
         <div className="w-full bg-[#fdfbf7] rounded-[3.5rem] p-10 md:p-20 shadow-[-20px_20px_60px_#bebebe,20px_-20px_60px_#ffffff] border border-stone-200 relative animate-in zoom-in duration-700">
-          {/* 信件裝飾 */}
           <div className="absolute top-10 right-10 flex flex-col items-end opacity-20">
              <div className="w-20 h-20 border-4 border-stone-300 rounded-full flex items-center justify-center font-serif text-3xl font-bold text-stone-400">2034</div>
              <p className="mt-2 font-serif text-[10px] tracking-widest font-black uppercase text-stone-500">INVEST HAVEN POST</p>
@@ -104,21 +103,6 @@ const TimeCapsule: React.FC = () => {
           </div>
         </div>
       )}
-
-      <div className="mt-16 grid grid-cols-1 md:grid-cols-2 gap-6 w-full">
-        <div className="bg-indigo-50/50 rounded-3xl p-6 border border-indigo-100/50 flex items-start gap-4">
-          <Sparkles className="text-indigo-400 mt-1 shrink-0" size={20} />
-          <p className="text-[11px] text-indigo-900 font-medium leading-relaxed uppercase tracking-wider">
-            時光對話不僅是文字的交換，更是定力的投射。當你與未來的自己連結，當下的恐懼便會消散。
-          </p>
-        </div>
-        <div className="bg-emerald-50/50 rounded-3xl p-6 border border-emerald-100/50 flex items-start gap-4">
-          <Anchor className="text-emerald-400 mt-1 shrink-0" size={20} />
-          <p className="text-[11px] text-emerald-900 font-medium leading-relaxed uppercase tracking-wider">
-            每一封封印的信，都是你投資生涯中的「錨點」。在未來的風暴中，它們會提醒你為何出發。
-          </p>
-        </div>
-      </div>
     </div>
   );
 };
