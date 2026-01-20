@@ -29,37 +29,33 @@ export const AUDIO_TRACKS: AudioTrack[] = [
   }
 ];
 
-/**
- * 根據資產 ID 生成具備辨識度的模擬數據
- * @param assetId 資產標識符
- */
 export const getMockData = (assetId: string) => {
   const data = [];
   const now = new Date();
   
-  // 為不同資產設置不同的基礎參數
-  let baseValue = 100;
-  let growthRate = 1.008; // 預設月成長率
-  let volatility = 5;    // 預設波動率
+  // 校準 2025 年級別的真實價格數量級
+  let endValue = 5000;
+  let startValue = 3000;
   
   if (assetId === 'nasdaq') {
-    growthRate = 1.015;
-    volatility = 12;
+    endValue = 20000;
+    startValue = 12000;
   } else if (assetId === 'gold') {
-    growthRate = 1.005;
-    volatility = 4;
+    endValue = 2700;
+    startValue = 1700;
   } else if (assetId === 'bitcoin') {
-    growthRate = 1.03;
-    volatility = 35;
+    endValue = 95000;
+    startValue = 45000;
   }
 
   for (let i = 59; i >= 0; i--) {
     const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
-    // 使用正弦函數模擬循環波動，並疊加隨機性
-    const timeIndex = 60 - i;
-    const trend = baseValue * Math.pow(growthRate, timeIndex);
-    const wave = Math.sin(timeIndex / 5) * volatility;
-    const noise = (Math.random() - 0.5) * (volatility / 2);
+    const progress = (60 - i) / 60;
+    
+    // 複合趨勢：基礎線性成長 + 週期性波動 + 隨機隨機噪音
+    const trend = startValue + (endValue - startValue) * progress;
+    const wave = Math.sin(progress * 15) * (endValue * 0.05);
+    const noise = (Math.random() - 0.5) * (endValue * 0.03);
     
     data.push({
       date: `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`,
@@ -69,5 +65,4 @@ export const getMockData = (assetId: string) => {
   return data;
 };
 
-// 為了相容性保留一個預設導出
 export const MOCK_CHART_DATA = getMockData('sp500');
