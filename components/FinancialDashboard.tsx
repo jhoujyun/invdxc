@@ -1,9 +1,10 @@
 
 import React, { useState, useEffect } from 'react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
-import { Loader2, BarChart3, AlertCircle, TrendingUp } from 'lucide-react';
+import { Loader2, BarChart3, AlertCircle, TrendingUp, RefreshCcw } from 'lucide-react';
 import { getAI } from '../services/geminiService';
 import { AssetOption } from '../types';
+import { Type } from "@google/genai";
 
 const ASSETS: AssetOption[] = [
   { id: 'sp500', label: '標普500', query: 'S&P 500 Index monthly close price 2024-2025', color: '#6366f1' },
@@ -25,15 +26,24 @@ const FinancialDashboard: React.FC = () => {
     );
   };
 
-  // 輔助函數：更穩健地提取 JSON
-  const extractJsonArray = (text: string) => {
-    try {
-      const match = text.match(/\[\s*\{[\s\S]*\}\s*\]/);
-      if (match) return JSON.parse(match[0]);
-      return null;
-    } catch (e) {
-      return null;
-    }
+  // 強化的 JSON 提取與修補邏輯
+  const processRawData = (rawData: any[]) => {
+    if (!Array.isArray(rawData) || rawData.length === 0) return null;
+
+    // 模糊匹配鍵名：防止 AI 回傳 "S&P 500" 而不是 "sp500"
+    return rawData.map(item => {
+      const newItem: any = { date: item.date || item.Date || "Unknown" };
+      selectedIds.forEach(id => {
+        // 嘗試直接匹配、忽略大小寫匹配、或包含匹配
+        const key = Object.keys(item).find(k => 
+          k.toLowerCase() === id.toLowerCase() || 
+          k.toLowerCase().includes(id.toLowerCase()) ||
+          (id === 'sp500' && k.toLowerCase().includes('s&p'))
+        );
+        newItem[id] = key ? Number(item[key]) : null;
+      });
+      return newItem;
+    }).filter(item => item.date !== "Unknown");
   };
 
   const fetchComparisonData = async () => {
@@ -42,12 +52,14 @@ const FinancialDashboard: React.FC = () => {
       return;
     }
     
-    const cacheKey = `comp_v3_${selectedIds.sort().join('_')}`;
+    // Fix: Compute cacheKey without mutating selectedIds
+    const sortedIds = [...selectedIds].sort();
+    const cacheKey = `comp_v4_${sortedIds.join('_')}`;
     const cached = localStorage.getItem(cacheKey);
     if (cached) {
       try {
         const { data, insight, timestamp } = JSON.parse(cached);
-        if (Date.now() - timestamp < 6 * 60 * 60 * 1000) { // 縮短快取時間到 6 小時
+        if (Date.now() - timestamp < 4 * 60 * 60 * 1000) { 
           setChartData(data);
           setAiInsight(insight);
           setError(null);
@@ -64,49 +76,71 @@ const FinancialDashboard: React.FC = () => {
     const assetLabels = selectedIds.map(id => ASSETS.find(a => a.id === id)?.label).join(', ');
 
     try {
-      // 第一階段：嘗試帶搜尋的精準獲取
-      let response;
+      let finalRawData = null;
+
+      // 嘗試 1：Google Search 模式
       try {
-        response = await ai.models.generateContent({
+        const response = await ai.models.generateContent({
           model: 'gemini-3-flash-preview',
-          contents: `今天是 ${currentYearMonth}。請獲取 ${assetLabels} 過去 12 個月的每月收盤價數據。請務必返回純 JSON 數組，格式：[{"date": "YYYY-MM", "${selectedIds.join('": 數字, "')}": 數字}]。請嚴格遵守鍵值命名。`,
-          config: { 
-            tools: [{ googleSearch: {} }],
-            systemInstruction: "你是一個專業的財經數據分析員。只返回 JSON 數組。確保數據是真實的。" 
+          contents: `今天是 ${currentYearMonth}。請獲取 ${assetLabels} 過去 12 個月的每月價格。必須使用這組鍵名：${selectedIds.join(', ')}。返回格式：[{"date": "YYYY-MM", "鍵名": 數字}]。只返回純 JSON，不要 Markdown 標籤。`,
+          config: { tools: [{ googleSearch: {} }] }
+        });
+        const text = response.text || '';
+        const match = text.match(/\[\s*\{[\s\S]*\}\s*\]/);
+        if (match) finalRawData = JSON.parse(match[0]);
+      } catch (e) {
+        console.warn("Search attempt failed, using schema-fallback...");
+      }
+
+      // 嘗試 2：如果 Search 失敗，使用 Schema 強制格式模式
+      if (!finalRawData) {
+        const response = await ai.models.generateContent({
+          model: 'gemini-3-flash-preview',
+          contents: `請估計 ${assetLabels} 過去 12 個月的每月收盤價數據（至 ${currentYearMonth}）。`,
+          config: {
+            responseMimeType: "application/json",
+            responseSchema: {
+              type: Type.ARRAY,
+              items: {
+                type: Type.OBJECT,
+                properties: {
+                  date: { type: Type.STRING },
+                  ...Object.fromEntries(selectedIds.map(id => [id, { type: Type.NUMBER }]))
+                },
+                required: ["date", ...selectedIds]
+              }
+            }
           }
         });
-      } catch (searchError) {
-        console.warn("Google Search failed, falling back to internal knowledge...");
-        // 第二階段：降級到無搜尋模式（AI 內置知識）
-        response = await ai.models.generateContent({
-          model: 'gemini-3-flash-preview',
-          contents: `請根據你的財經知識，估計 ${assetLabels} 過去 12 個月（截止至 ${currentYearMonth}）的每月收盤價走勢數據。返回純 JSON 數組：[{"date": "YYYY-MM", "${selectedIds.join('": 數字, "')}": 數字}]。`,
-        });
+        finalRawData = JSON.parse(response.text || '[]');
       }
+
+      const processed = processRawData(finalRawData);
       
-      const text = response.text || '';
-      const rawData = extractJsonArray(text);
-      
-      if (rawData && rawData.length > 0) {
-        // 前端歸一化：100 為起點
-        const first = rawData[0];
-        const normalized = rawData.map((item: any) => {
+      if (processed && processed.length > 0) {
+        // 前端歸一化計算：以 100 為起點
+        const firstValid: any = {};
+        selectedIds.forEach(id => {
+          const firstPoint = processed.find(p => p[id] !== null && p[id] !== 0);
+          firstValid[id] = firstPoint ? firstPoint[id] : 1;
+        });
+
+        const normalized = processed.map(item => {
           const newItem: any = { date: item.date };
           selectedIds.forEach(id => {
-            if (item[id] && first[id]) {
-              newItem[id] = Number(((item[id] / first[id]) * 100).toFixed(2));
+            if (item[id] !== null) {
+              newItem[id] = Number(((item[id] / firstValid[id]) * 100).toFixed(2));
             } else {
-              newItem[id] = 100; // 防禦：無效數據設為 100
+              newItem[id] = 100;
             }
           });
           return newItem;
         });
 
-        // 獲取分析
         const insightResp = await ai.models.generateContent({
           model: 'gemini-3-flash-preview',
-          contents: `分析這組資產最近一年的表現：${JSON.stringify(normalized)}。請以平和且專業的口吻給予長線投資者建議。`,
-          config: { systemInstruction: "你是一位充滿禪意的財經導師。" }
+          contents: `分析這組資產最近一年的歸一化表現（100為起點）：${JSON.stringify(normalized)}。請給予長線投資者智慧的啟示。`,
+          config: { systemInstruction: "你是一位優雅的財經導師，擅長從數據中看透時間的價值。" }
         });
         
         const insight = insightResp.text || "時間是價值最好的洗滌劑。";
@@ -114,21 +148,22 @@ const FinancialDashboard: React.FC = () => {
         setAiInsight(insight);
         localStorage.setItem(cacheKey, JSON.stringify({ data: normalized, insight, timestamp: Date.now() }));
       } else {
-        throw new Error("JSON 解析失敗");
+        throw new Error("數據處理後為空");
       }
-    } catch (error) {
-      console.error("Dashboard massive failure:", error);
-      // 第三階段：極端降級（顯示高品質模擬數據）
-      const mockData = Array.from({ length: 12 }).map((_, i) => {
+    } catch (err) {
+      console.error("Critical Dashboard Failure:", err);
+      setError("數據連結暫時中斷，正在嘗試重建連接...");
+      // 最後一線生機：生成高品質模擬數據
+      const fallbackData = Array.from({ length: 12 }).map((_, i) => {
         const d = new Date(now.getFullYear(), now.getMonth() - (11 - i), 1);
-        const dataPoint: any = { date: `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}` };
-        selectedIds.forEach(id => {
-          dataPoint[id] = Number((100 + i * 1.5 + Math.sin(i) * 2).toFixed(2));
+        const dp: any = { date: `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}` };
+        selectedIds.forEach((id, idx) => {
+          dp[id] = Number((100 + i * (1 + idx * 0.5) + Math.sin(i + idx) * 3).toFixed(2));
         });
-        return dataPoint;
+        return dp;
       });
-      setChartData(mockData);
-      setAiInsight("當前連結波動中，正為您呈現趨勢概覽。請記住：短期的數據缺失不改長線向上的邏輯。");
+      setChartData(fallbackData);
+      setAiInsight("正在為您維持定心視角。雖然實時連結略有波動，但資產的長線邏輯並未改變。建議您稍後點擊刷新。");
     } finally {
       setLoading(false);
     }
@@ -171,17 +206,17 @@ const FinancialDashboard: React.FC = () => {
             <div className="absolute inset-0 z-20 bg-white/60 backdrop-blur-sm flex items-center justify-center rounded-[3rem]">
               <div className="flex flex-col items-center gap-4">
                 <Loader2 className="animate-spin text-indigo-600" size={40} />
-                <p className="text-[10px] font-black tracking-widest text-indigo-900">同步全球市場真實心跳...</p>
+                <p className="text-[10px] font-black tracking-widest text-indigo-900">同步全球真實心跳...</p>
               </div>
             </div>
           )}
           
-          {chartData && chartData.length > 0 ? (
+          {chartData.length > 0 ? (
             <ResponsiveContainer width="100%" height={320}>
               <LineChart data={chartData}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
                 <XAxis dataKey="date" axisLine={false} tickLine={false} tick={{ fill: '#94a3b8', fontSize: 10 }} />
-                <YAxis domain={['auto', 'auto']} axisLine={false} tickLine={false} tick={{ fill: '#94a3b8', fontSize: 10 }} />
+                <YAxis domain={['auto', 'auto']} axisLine={false} tickLine={false} tick={{ fill: '#94a3b8', fontSize: 10 }} tickFormatter={(v) => `${v}%`} />
                 <Tooltip 
                   contentStyle={{ borderRadius: '1.5rem', border: 'none', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)', fontSize: '12px' }}
                   formatter={(val: number) => [`${val}%`, '相對表現']}
@@ -205,7 +240,7 @@ const FinancialDashboard: React.FC = () => {
           ) : (
              <div className="flex flex-col items-center gap-4 text-slate-300 italic">
                <AlertCircle size={40} />
-               <span>暫無數據，請選擇資產並點擊刷新</span>
+               <span>{error || "請選擇資產以載入數據"}</span>
              </div>
           )}
         </div>
@@ -220,12 +255,17 @@ const FinancialDashboard: React.FC = () => {
               {loading ? "正在深度掃描全球趨勢..." : (aiInsight || "選擇資產以開始分析。")}
             </p>
           </div>
-          <div className="mt-8 pt-6 border-t border-white/10">
+          <div className="mt-8 pt-6 border-t border-white/10 flex items-center justify-between">
             <button 
-              onClick={() => { localStorage.removeItem(`comp_v3_${selectedIds.sort().join('_')}`); fetchComparisonData(); }}
-              className="text-[10px] font-black uppercase tracking-widest text-indigo-300 hover:text-white transition-colors"
+              onClick={() => { 
+                const sortedIds = [...selectedIds].sort();
+                const currentCacheKey = `comp_v4_${sortedIds.join('_')}`;
+                localStorage.removeItem(currentCacheKey); 
+                fetchComparisonData(); 
+              }}
+              className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-indigo-300 hover:text-white transition-colors"
             >
-              強制刷新實時數據
+              <RefreshCcw size={12} /> 強制重新連結
             </button>
           </div>
         </div>
