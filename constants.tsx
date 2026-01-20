@@ -29,16 +29,45 @@ export const AUDIO_TRACKS: AudioTrack[] = [
   }
 ];
 
-// 動態生成模擬數據，確保終點為當前時間（2026年1月基準）
-export const MOCK_CHART_DATA = (() => {
+/**
+ * 根據資產 ID 生成具備辨識度的模擬數據
+ * @param assetId 資產標識符
+ */
+export const getMockData = (assetId: string) => {
   const data = [];
-  const now = new Date(); // 實際執行時會獲取當前時間
+  const now = new Date();
+  
+  // 為不同資產設置不同的基礎參數
+  let baseValue = 100;
+  let growthRate = 1.008; // 預設月成長率
+  let volatility = 5;    // 預設波動率
+  
+  if (assetId === 'nasdaq') {
+    growthRate = 1.015;
+    volatility = 12;
+  } else if (assetId === 'gold') {
+    growthRate = 1.005;
+    volatility = 4;
+  } else if (assetId === 'bitcoin') {
+    growthRate = 1.03;
+    volatility = 35;
+  }
+
   for (let i = 59; i >= 0; i--) {
     const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    // 使用正弦函數模擬循環波動，並疊加隨機性
+    const timeIndex = 60 - i;
+    const trend = baseValue * Math.pow(growthRate, timeIndex);
+    const wave = Math.sin(timeIndex / 5) * volatility;
+    const noise = (Math.random() - 0.5) * (volatility / 2);
+    
     data.push({
       date: `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`,
-      value: 100 * Math.pow(1.012, 60 - i) + (Math.sin((60 - i) / 4) * 8)
+      value: Number((trend + wave + noise).toFixed(2))
     });
   }
   return data;
-})();
+};
+
+// 為了相容性保留一個預設導出
+export const MOCK_CHART_DATA = getMockData('sp500');
