@@ -1,16 +1,16 @@
 
 import React, { useState, useEffect } from 'react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
-import { Loader2, BarChart3, AlertCircle, TrendingUp, RefreshCcw } from 'lucide-react';
+import { Loader2, BarChart3, AlertCircle, TrendingUp, RefreshCcw, Wifi, WifiOff } from 'lucide-react';
 import { getAI } from '../services/geminiService';
 import { AssetOption } from '../types';
 import { Type } from "@google/genai";
 
 const ASSETS: AssetOption[] = [
-  { id: 'sp500', label: '標普500', query: 'S&P 500 Index monthly close price 2024-2025', color: '#6366f1' },
-  { id: 'nasdaq', label: '納斯達克', query: 'Nasdaq 100 Index monthly close price 2024-2025', color: '#10b981' },
-  { id: 'gold', label: '黃金', query: 'Gold spot price monthly USD 2024-2025', color: '#f59e0b' },
-  { id: 'btc', label: '比特幣', query: 'Bitcoin historical monthly price 2024-2025', color: '#f43f5e' },
+  { id: 'sp500', label: '標普500', query: 'S&P 500 Index real historical monthly close price 2024-2025', color: '#6366f1' },
+  { id: 'nasdaq', label: '納斯達克', query: 'Nasdaq 100 Index real historical monthly close price 2024-2025', color: '#10b981' },
+  { id: 'gold', label: '現貨黃金', query: 'Gold spot price (XAU/USD) real monthly historical 2024-2025', color: '#f59e0b' },
+  { id: 'btc', label: '比特幣', query: 'Bitcoin (BTC/USD) real historical monthly price 2024-2025', color: '#f43f5e' },
 ];
 
 const FinancialDashboard: React.FC = () => {
@@ -19,6 +19,7 @@ const FinancialDashboard: React.FC = () => {
   const [chartData, setChartData] = useState<any[]>([]);
   const [aiInsight, setAiInsight] = useState<string>('');
   const [error, setError] = useState<string | null>(null);
+  const [dataSource, setDataSource] = useState<'real' | 'simulated'>('simulated');
 
   const toggleAsset = (id: string) => {
     setSelectedIds(prev => 
@@ -26,46 +27,58 @@ const FinancialDashboard: React.FC = () => {
     );
   };
 
-  // 強化的 JSON 提取與修補邏輯
+  // 深度數據洗滌：處理 "$75,000.50", "1,200 USD" 等複雜格式
+  const cleanNumber = (val: any): number | null => {
+    if (val === null || val === undefined) return null;
+    if (typeof val === 'number') return val;
+    // 移除所有非數字、非小數點、非負號的字符
+    const cleaned = String(val).replace(/[^\d.-]/g, '');
+    const num = parseFloat(cleaned);
+    return isNaN(num) ? null : num;
+  };
+
   const processRawData = (rawData: any[]) => {
     if (!Array.isArray(rawData) || rawData.length === 0) return null;
 
-    // 模糊匹配鍵名：防止 AI 回傳 "S&P 500" 而不是 "sp500"
     return rawData.map(item => {
       const newItem: any = { date: item.date || item.Date || "Unknown" };
       selectedIds.forEach(id => {
-        // 嘗試直接匹配、忽略大小寫匹配、或包含匹配
         const key = Object.keys(item).find(k => 
           k.toLowerCase() === id.toLowerCase() || 
           k.toLowerCase().includes(id.toLowerCase()) ||
           (id === 'sp500' && k.toLowerCase().includes('s&p'))
         );
-        newItem[id] = key ? Number(item[key]) : null;
+        newItem[id] = key ? cleanNumber(item[key]) : null;
       });
       return newItem;
     }).filter(item => item.date !== "Unknown");
   };
 
-  const fetchComparisonData = async () => {
+  const fetchComparisonData = async (forceRefresh = false) => {
     if (selectedIds.length === 0) {
       setChartData([]);
       return;
     }
     
-    // Fix: Compute cacheKey without mutating selectedIds
     const sortedIds = [...selectedIds].sort();
-    const cacheKey = `comp_v4_${sortedIds.join('_')}`;
-    const cached = localStorage.getItem(cacheKey);
-    if (cached) {
-      try {
-        const { data, insight, timestamp } = JSON.parse(cached);
-        if (Date.now() - timestamp < 4 * 60 * 60 * 1000) { 
-          setChartData(data);
-          setAiInsight(insight);
-          setError(null);
-          return;
-        }
-      } catch (e) {}
+    const cacheKey = `comp_v5_${sortedIds.join('_')}`;
+    
+    if (forceRefresh) {
+      localStorage.removeItem(cacheKey);
+    } else {
+      const cached = localStorage.getItem(cacheKey);
+      if (cached) {
+        try {
+          const { data, insight, timestamp, source } = JSON.parse(cached);
+          if (Date.now() - timestamp < 4 * 60 * 60 * 1000) { 
+            setChartData(data);
+            setAiInsight(insight);
+            setDataSource(source || 'real');
+            setError(null);
+            return;
+          }
+        } catch (e) {}
+      }
     }
 
     setLoading(true);
@@ -77,26 +90,34 @@ const FinancialDashboard: React.FC = () => {
 
     try {
       let finalRawData = null;
+      let usedRealSource = false;
 
-      // 嘗試 1：Google Search 模式
+      // 嘗試：Google Search 獲取真實數據
       try {
         const response = await ai.models.generateContent({
           model: 'gemini-3-flash-preview',
-          contents: `今天是 ${currentYearMonth}。請獲取 ${assetLabels} 過去 12 個月的每月價格。必須使用這組鍵名：${selectedIds.join(', ')}。返回格式：[{"date": "YYYY-MM", "鍵名": 數字}]。只返回純 JSON，不要 Markdown 標籤。`,
+          contents: `今天是 ${currentYearMonth}。請使用 Google Search 獲取這 ${selectedIds.length} 個資產的「真實每月收盤價」：${assetLabels}。
+          時間範圍：過去 12 個月。
+          鍵名要求：必須使用 [${selectedIds.join(', ')}]。
+          輸出格式要求：僅返回一個 JSON Array，例如 [{"date": "2024-01", "sp500": 4800, "btc": 42000}]。
+          注意：價格必須是真實市場數據，嚴禁隨機生成。`,
           config: { tools: [{ googleSearch: {} }] }
         });
         const text = response.text || '';
         const match = text.match(/\[\s*\{[\s\S]*\}\s*\]/);
-        if (match) finalRawData = JSON.parse(match[0]);
+        if (match) {
+          finalRawData = JSON.parse(match[0]);
+          usedRealSource = true;
+        }
       } catch (e) {
-        console.warn("Search attempt failed, using schema-fallback...");
+        console.warn("Real-time search failed, using knowledge-base...");
       }
 
-      // 嘗試 2：如果 Search 失敗，使用 Schema 強制格式模式
+      // 降級方案：Schema 強制生成（如果搜尋失敗）
       if (!finalRawData) {
         const response = await ai.models.generateContent({
           model: 'gemini-3-flash-preview',
-          contents: `請估計 ${assetLabels} 過去 12 個月的每月收盤價數據（至 ${currentYearMonth}）。`,
+          contents: `請估計並返回 ${assetLabels} 在過去 12 個月的每月收盤價格數據。`,
           config: {
             responseMimeType: "application/json",
             responseSchema: {
@@ -118,7 +139,7 @@ const FinancialDashboard: React.FC = () => {
       const processed = processRawData(finalRawData);
       
       if (processed && processed.length > 0) {
-        // 前端歸一化計算：以 100 為起點
+        // 歸一化處理 (Normalization)
         const firstValid: any = {};
         selectedIds.forEach(id => {
           const firstPoint = processed.find(p => p[id] !== null && p[id] !== 0);
@@ -139,31 +160,40 @@ const FinancialDashboard: React.FC = () => {
 
         const insightResp = await ai.models.generateContent({
           model: 'gemini-3-flash-preview',
-          contents: `分析這組資產最近一年的歸一化表現（100為起點）：${JSON.stringify(normalized)}。請給予長線投資者智慧的啟示。`,
-          config: { systemInstruction: "你是一位優雅的財經導師，擅長從數據中看透時間的價值。" }
+          contents: `分析這組資產最近一年的歸一化表現（100為起點）：${JSON.stringify(normalized)}。`,
+          config: { systemInstruction: "你是一位優雅的財經導師，擅長從數據中看透時間的價值。請用簡短有力的話語給予投資者定力。" }
         });
         
         const insight = insightResp.text || "時間是價值最好的洗滌劑。";
         setChartData(normalized);
         setAiInsight(insight);
-        localStorage.setItem(cacheKey, JSON.stringify({ data: normalized, insight, timestamp: Date.now() }));
+        setDataSource(usedRealSource ? 'real' : 'simulated');
+        localStorage.setItem(cacheKey, JSON.stringify({ 
+          data: normalized, 
+          insight, 
+          timestamp: Date.now(),
+          source: usedRealSource ? 'real' : 'simulated'
+        }));
       } else {
-        throw new Error("數據處理後為空");
+        throw new Error("數據解析失敗");
       }
     } catch (err) {
-      console.error("Critical Dashboard Failure:", err);
-      setError("數據連結暫時中斷，正在嘗試重建連接...");
-      // 最後一線生機：生成高品質模擬數據
-      const fallbackData = Array.from({ length: 12 }).map((_, i) => {
+      console.error("Dashboard Sync Failed:", err);
+      setError("實時鏈結出現微小擾動，正在切換至內核備份模式...");
+      setDataSource('simulated');
+      // 高品質降噪模擬數據
+      const fallback = Array.from({ length: 12 }).map((_, i) => {
         const d = new Date(now.getFullYear(), now.getMonth() - (11 - i), 1);
         const dp: any = { date: `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}` };
         selectedIds.forEach((id, idx) => {
-          dp[id] = Number((100 + i * (1 + idx * 0.5) + Math.sin(i + idx) * 3).toFixed(2));
+          const trend = 100 + i * (0.8 + idx * 0.2);
+          const noise = Math.sin(i * 0.5 + idx) * 2;
+          dp[id] = Number((trend + noise).toFixed(2));
         });
         return dp;
       });
-      setChartData(fallbackData);
-      setAiInsight("正在為您維持定心視角。雖然實時連結略有波動，但資產的長線邏輯並未改變。建議您稍後點擊刷新。");
+      setChartData(fallback);
+      setAiInsight("外界的數據傳輸偶爾會有波動，但市場的長期價值規律是恆定的。您的定力，就是您在波動中最穩定的資產。");
     } finally {
       setLoading(false);
     }
@@ -175,11 +205,18 @@ const FinancialDashboard: React.FC = () => {
 
   return (
     <div className="w-full max-w-6xl flex flex-col items-center px-4 md:px-8 animate-in fade-in duration-1000">
-      <div className="text-center mb-12">
+      <div className="text-center mb-10">
         <h2 className="text-4xl font-bold text-slate-900 mb-4 tracking-widest uppercase">資產對比艙</h2>
-        <div className="flex items-center justify-center gap-2 text-slate-500 mb-2">
-           <TrendingUp size={18} className="text-indigo-400" />
-           <p className="text-lg font-medium">歸一化視角下的全球趨勢（12個月）</p>
+        <div className="flex items-center justify-center gap-4 text-slate-500">
+           <div className="flex items-center gap-2 px-3 py-1 rounded-full bg-slate-100 text-[10px] font-black uppercase tracking-widest">
+             {dataSource === 'real' ? (
+               <><Wifi size={12} className="text-emerald-500" /> 實時數據鏈結中</>
+             ) : (
+               <><WifiOff size={12} className="text-amber-500" /> 內核模式運行</>
+             )}
+           </div>
+           <div className="w-px h-3 bg-slate-200" />
+           <p className="text-sm font-medium">歸一化趨勢 (最近12個月)</p>
         </div>
       </div>
 
@@ -212,31 +249,36 @@ const FinancialDashboard: React.FC = () => {
           )}
           
           {chartData.length > 0 ? (
-            <ResponsiveContainer width="100%" height={320}>
-              <LineChart data={chartData}>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
-                <XAxis dataKey="date" axisLine={false} tickLine={false} tick={{ fill: '#94a3b8', fontSize: 10 }} />
-                <YAxis domain={['auto', 'auto']} axisLine={false} tickLine={false} tick={{ fill: '#94a3b8', fontSize: 10 }} tickFormatter={(v) => `${v}%`} />
-                <Tooltip 
-                  contentStyle={{ borderRadius: '1.5rem', border: 'none', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)', fontSize: '12px' }}
-                  formatter={(val: number) => [`${val}%`, '相對表現']}
-                />
-                <Legend iconType="circle" wrapperStyle={{ paddingTop: '20px' }} />
-                {selectedIds.map(id => (
-                  <Line 
-                    key={id} 
-                    type="monotone" 
-                    dataKey={id} 
-                    name={ASSETS.find(a => a.id === id)?.label} 
-                    stroke={ASSETS.find(a => a.id === id)?.color} 
-                    strokeWidth={4} 
-                    dot={false}
-                    activeDot={{ r: 6, strokeWidth: 0 }}
-                    animationDuration={1500} 
+            <div className="w-full h-full flex flex-col">
+              <ResponsiveContainer width="100%" height={320}>
+                <LineChart data={chartData} margin={{ top: 20, right: 20, left: 0, bottom: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
+                  <XAxis dataKey="date" axisLine={false} tickLine={false} tick={{ fill: '#94a3b8', fontSize: 10 }} />
+                  <YAxis domain={['auto', 'auto']} axisLine={false} tickLine={false} tick={{ fill: '#94a3b8', fontSize: 10 }} tickFormatter={(v) => `${v}%`} />
+                  <Tooltip 
+                    contentStyle={{ borderRadius: '1.5rem', border: 'none', boxShadow: '0 20px 25px -5px rgba(0,0,0,0.1)', fontSize: '12px', padding: '16px' }}
+                    formatter={(val: number) => [`${val}%`, '相對基準點']}
                   />
-                ))}
-              </LineChart>
-            </ResponsiveContainer>
+                  <Legend iconType="circle" wrapperStyle={{ paddingTop: '24px' }} />
+                  {selectedIds.map(id => (
+                    <Line 
+                      key={id} 
+                      type="monotone" 
+                      dataKey={id} 
+                      name={ASSETS.find(a => a.id === id)?.label} 
+                      stroke={ASSETS.find(a => a.id === id)?.color} 
+                      strokeWidth={4} 
+                      dot={false}
+                      activeDot={{ r: 6, strokeWidth: 0 }}
+                      animationDuration={1500} 
+                    />
+                  ))}
+                </LineChart>
+              </ResponsiveContainer>
+              <p className="text-[9px] text-center text-slate-400 font-black tracking-[0.3em] mt-4 uppercase">
+                基準值 100% 代表 12 個月前的起點價格
+              </p>
+            </div>
           ) : (
              <div className="flex flex-col items-center gap-4 text-slate-300 italic">
                <AlertCircle size={40} />
@@ -257,15 +299,11 @@ const FinancialDashboard: React.FC = () => {
           </div>
           <div className="mt-8 pt-6 border-t border-white/10 flex items-center justify-between">
             <button 
-              onClick={() => { 
-                const sortedIds = [...selectedIds].sort();
-                const currentCacheKey = `comp_v4_${sortedIds.join('_')}`;
-                localStorage.removeItem(currentCacheKey); 
-                fetchComparisonData(); 
-              }}
-              className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-indigo-300 hover:text-white transition-colors"
+              onClick={() => fetchComparisonData(true)}
+              disabled={loading}
+              className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-indigo-300 hover:text-white transition-colors disabled:opacity-30"
             >
-              <RefreshCcw size={12} /> 強制重新連結
+              <RefreshCcw size={12} className={loading ? 'animate-spin' : ''} /> 強制刷新鏈結
             </button>
           </div>
         </div>
