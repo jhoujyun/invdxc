@@ -92,7 +92,7 @@ const SupportModal: React.FC<SupportModalProps> = ({ isOpen, onClose }) => {
             
             <h2 className="text-2xl font-bold text-slate-900 mb-2 tracking-widest uppercase">護航計劃</h2>
             <p className="text-slate-500 text-sm font-medium mb-8 leading-relaxed">
-              《定心艙》的運作依賴伺服器與 AI 算力。如果您認格這份寧靜，請考慮支持我們的持續維護。
+              《定心艙》的運作依賴伺服器與 AI 算力。如果您認可這份寧靜，請考慮支持我們的持續維護。
             </p>
 
             <div className="grid grid-cols-3 gap-4 w-full mb-8">
