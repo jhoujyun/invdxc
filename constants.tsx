@@ -32,30 +32,32 @@ export const AUDIO_TRACKS: AudioTrack[] = [
 export const getMockData = (assetId: string) => {
   const data = [];
   const now = new Date();
-  
-  // 校準 2025 年級別的真實價格數量級
-  let endValue = 5000;
-  let startValue = 3000;
+  // 限制模擬數據絕不超過 2025 年底，防止日期穿越
+  if (now.getFullYear() > 2025) now.setFullYear(2025);
+
+  let endValue = 5900;
+  let startValue = 3300;
   
   if (assetId === 'nasdaq') {
-    endValue = 20000;
-    startValue = 12000;
+    endValue = 21000;
+    startValue = 11000;
   } else if (assetId === 'gold') {
-    endValue = 2700;
-    startValue = 1700;
+    // 黃金 2025 年真實水位約 $2,600-$2,800
+    endValue = 2750;
+    startValue = 1550;
   } else if (assetId === 'bitcoin') {
-    endValue = 95000;
-    startValue = 45000;
+    endValue = 96000;
+    startValue = 35000;
   }
 
   for (let i = 59; i >= 0; i--) {
     const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
     const progress = (60 - i) / 60;
     
-    // 複合趨勢：基礎線性成長 + 週期性波動 + 隨機隨機噪音
-    const trend = startValue + (endValue - startValue) * progress;
-    const wave = Math.sin(progress * 15) * (endValue * 0.05);
-    const noise = (Math.random() - 0.5) * (endValue * 0.03);
+    // 增加一點隨機但向上的趨勢
+    const trend = startValue + (endValue - startValue) * Math.pow(progress, 1.2);
+    const wave = Math.sin(progress * 12) * (endValue * 0.04);
+    const noise = (Math.random() - 0.5) * (endValue * 0.02);
     
     data.push({
       date: `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`,
