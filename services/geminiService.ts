@@ -2,7 +2,7 @@
 import { GoogleGenAI, Type } from "@google/genai";
 import { DenoisedResult, ChartDataPoint, GroundingSource } from "../types";
 
-const CACHE_EXPIRY = 6 * 60 * 60 * 1000;
+const CACHE_EXPIRY = 24 * 60 * 60 * 1000; // 視角數據可以緩存更久
 
 export const getAI = () => {
   const apiKey = process.env.API_KEY;
@@ -10,8 +10,7 @@ export const getAI = () => {
 };
 
 export const fetchMarketTrend = async (assetQuery: string, startDate: string, endDate: string): Promise<{ data: ChartDataPoint[], sources: GroundingSource[] }> => {
-  // 緩存 Key 包含版本號，強制刷新舊的錯誤數據
-  const cacheKey = `trend_v8_${assetQuery.replace(/\s/g, '_')}`;
+  const cacheKey = `vision_v9_${assetQuery.replace(/\s/g, '_')}`;
   const saved = localStorage.getItem(cacheKey);
   if (saved) {
     const { data, sources, timestamp } = JSON.parse(saved);
@@ -20,26 +19,21 @@ export const fetchMarketTrend = async (assetQuery: string, startDate: string, en
 
   try {
     const ai = getAI();
-    const today = new Date();
-    // 設置一個硬性的未來截止日，防止 AI 生成 2026
-    const absoluteMax = "2025-12-31";
-    const todayStr = today.toISOString().split('T')[0] > absoluteMax ? absoluteMax : today.toISOString().split('T')[0];
-    
+    // 使用當前動態日期，不再硬性封鎖
     const prompt = `
-      現在確切時間是 ${todayStr}。
-      任務：獲取「${assetQuery}」的真實歷史每月收盤價（美元）。
-      如果是黃金，請提供現貨黃金 (XAU/USD) 每盎司的價格。
+      任務：獲取「${assetQuery}」的五年長線價值走勢錨點。
       
-      必須提供的時間點：
-      1. ${startDate} (5年前)
-      2. 3年前
-      3. 1年前
-      4. ${todayStr} (當前最新真實市場價格)
+      請提供以下五個時間點的真實歷史收盤價（美元）：
+      1. ${startDate} (五年前的起點)
+      2. 三年前的月份
+      3. 一年前的月份
+      4. 半年前的月份
+      5. ${endDate} (當前最新的市場真實價格)
 
-      規則：
-      - 嚴禁提供任何 2026 年或之後的數據。
-      - 只返回 JSON Array: [{"date": "YYYY-MM-DD", "value": number}]
-      - 不要輸出任何額外文字。
+      輸出規則：
+      - 只返回 JSON Array: [{"date": "YYYY-MM", "value": number}]
+      - 數據必須基於歷史事實。
+      - 不要輸出任何額外解釋。
     `;
 
     const response = await ai.models.generateContent({
@@ -47,7 +41,7 @@ export const fetchMarketTrend = async (assetQuery: string, startDate: string, en
       contents: prompt,
       config: {
         tools: [{ googleSearch: {} }],
-        systemInstruction: `你是一個精準的財經數據 API。當前日期是 ${todayStr}。你提供的所有數據點日期必須小於或等於 ${todayStr}。`
+        systemInstruction: "你是一個長線投資數據助手。你負責提供資產的歷史大框架趨勢。輸出必須是純粹的 JSON 數組。"
       }
     });
 
@@ -59,9 +53,8 @@ export const fetchMarketTrend = async (assetQuery: string, startDate: string, en
     const match = text.match(/\[\s*\{[\s\S]*\}\s*\]/);
     
     if (match) {
-      const rawPoints = JSON.parse(match[0]);
-      const validPoints = rawPoints
-        .filter((p: any) => p.date && p.date <= todayStr && p.value > 0)
+      const validPoints = JSON.parse(match[0])
+        .filter((p: any) => p.date && p.value > 0)
         .sort((a: any, b: any) => a.date.localeCompare(b.date));
       
       if (validPoints.length >= 2) {
@@ -69,10 +62,8 @@ export const fetchMarketTrend = async (assetQuery: string, startDate: string, en
         return { data: validPoints, sources };
       }
     }
-    
     return { data: [], sources: [] };
   } catch (e) {
-    console.error("fetchMarketTrend error:", e);
     return { data: [], sources: [] };
   }
 };
