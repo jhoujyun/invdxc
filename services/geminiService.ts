@@ -10,7 +10,8 @@ export const getAI = () => {
 };
 
 export const fetchMarketTrend = async (assetQuery: string, startDate: string, endDate: string): Promise<{ data: ChartDataPoint[], sources: GroundingSource[] }> => {
-  const cacheKey = `trend_v7_${assetQuery.replace(/\s/g, '_')}_${startDate}`;
+  // 緩存 Key 包含版本號，強制刷新舊的錯誤數據
+  const cacheKey = `trend_v8_${assetQuery.replace(/\s/g, '_')}`;
   const saved = localStorage.getItem(cacheKey);
   if (saved) {
     const { data, sources, timestamp } = JSON.parse(saved);
@@ -20,24 +21,25 @@ export const fetchMarketTrend = async (assetQuery: string, startDate: string, en
   try {
     const ai = getAI();
     const today = new Date();
-    const todayStr = today.toISOString().split('T')[0];
+    // 設置一個硬性的未來截止日，防止 AI 生成 2026
+    const absoluteMax = "2025-12-31";
+    const todayStr = today.toISOString().split('T')[0] > absoluteMax ? absoluteMax : today.toISOString().split('T')[0];
     
-    // 強化提示詞：增加常識區間與嚴格時間邊界
     const prompt = `
       現在確切時間是 ${todayStr}。
-      任務：獲取「${assetQuery}」的真實歷史收盤價。
+      任務：獲取「${assetQuery}」的真實歷史每月收盤價（美元）。
+      如果是黃金，請提供現貨黃金 (XAU/USD) 每盎司的價格。
       
-      時間節點（必須按此順序）：
-      1. ${startDate} (5年前真實價格)
+      必須提供的時間點：
+      1. ${startDate} (5年前)
       2. 3年前
       3. 1年前
-      4. ${todayStr} (今天/最新真實市場價格)
+      4. ${todayStr} (當前最新真實市場價格)
 
-      嚴格規則：
-      - 搜尋結果若包含 2026, 2027 等預測數據，必須忽略。
-      - 價格必須是 USD 原始數值。若資產是比特幣，價格應在 10,000 到 150,000 之間。
+      規則：
+      - 嚴禁提供任何 2026 年或之後的數據。
       - 只返回 JSON Array: [{"date": "YYYY-MM-DD", "value": number}]
-      - 絕對不要解釋，不要輸出任何 Markdown 標籤。
+      - 不要輸出任何額外文字。
     `;
 
     const response = await ai.models.generateContent({
@@ -45,7 +47,7 @@ export const fetchMarketTrend = async (assetQuery: string, startDate: string, en
       contents: prompt,
       config: {
         tools: [{ googleSearch: {} }],
-        systemInstruction: `你是一個精準的數據抓取器。你只回傳歷史事實。當前日期是 ${todayStr}，你絕對不能生成或提及任何 ${todayStr} 之後的數據。`
+        systemInstruction: `你是一個精準的財經數據 API。當前日期是 ${todayStr}。你提供的所有數據點日期必須小於或等於 ${todayStr}。`
       }
     });
 
@@ -58,7 +60,6 @@ export const fetchMarketTrend = async (assetQuery: string, startDate: string, en
     
     if (match) {
       const rawPoints = JSON.parse(match[0]);
-      // 二次過濾：確保沒有未來日期，且數值為正
       const validPoints = rawPoints
         .filter((p: any) => p.date && p.date <= todayStr && p.value > 0)
         .sort((a: any, b: any) => a.date.localeCompare(b.date));
