@@ -9,7 +9,7 @@ import { Type } from "@google/genai";
 const ASSETS: AssetOption[] = [
   { id: 'sp500', label: '標普500', query: 'S&P 500 Index real historical monthly close price 2024-2025', color: '#6366f1' },
   { id: 'nasdaq', label: '納斯達克', query: 'Nasdaq 100 Index real historical monthly close price 2024-2025', color: '#10b981' },
-  { id: 'gold', label: '現貨黃金', query: 'Gold spot price (XAU/USD) real monthly historical 2024-2025', color: '#f59e0b' },
+  { id: 'dow', label: '道瓊斯', query: 'Dow Jones Industrial Average real historical monthly close price 2024-2025', color: '#f59e0b' },
   { id: 'btc', label: '比特幣', query: 'Bitcoin (BTC/USD) real historical monthly price 2024-2025', color: '#f43f5e' },
 ];
 
@@ -27,11 +27,9 @@ const FinancialDashboard: React.FC = () => {
     );
   };
 
-  // 深度數據洗滌：處理 "$75,000.50", "1,200 USD" 等複雜格式
   const cleanNumber = (val: any): number | null => {
     if (val === null || val === undefined) return null;
     if (typeof val === 'number') return val;
-    // 移除所有非數字、非小數點、非負號的字符
     const cleaned = String(val).replace(/[^\d.-]/g, '');
     const num = parseFloat(cleaned);
     return isNaN(num) ? null : num;
@@ -46,7 +44,8 @@ const FinancialDashboard: React.FC = () => {
         const key = Object.keys(item).find(k => 
           k.toLowerCase() === id.toLowerCase() || 
           k.toLowerCase().includes(id.toLowerCase()) ||
-          (id === 'sp500' && k.toLowerCase().includes('s&p'))
+          (id === 'sp500' && k.toLowerCase().includes('s&p')) ||
+          (id === 'dow' && (k.toLowerCase().includes('dow') || k.toLowerCase().includes('dji')))
         );
         newItem[id] = key ? cleanNumber(item[key]) : null;
       });
@@ -61,7 +60,7 @@ const FinancialDashboard: React.FC = () => {
     }
     
     const sortedIds = [...selectedIds].sort();
-    const cacheKey = `comp_v5_${sortedIds.join('_')}`;
+    const cacheKey = `comp_v6_${sortedIds.join('_')}`;
     
     if (forceRefresh) {
       localStorage.removeItem(cacheKey);
@@ -92,15 +91,13 @@ const FinancialDashboard: React.FC = () => {
       let finalRawData = null;
       let usedRealSource = false;
 
-      // 嘗試：Google Search 獲取真實數據
       try {
         const response = await ai.models.generateContent({
           model: 'gemini-3-flash-preview',
           contents: `今天是 ${currentYearMonth}。請使用 Google Search 獲取這 ${selectedIds.length} 個資產的「真實每月收盤價」：${assetLabels}。
           時間範圍：過去 12 個月。
           鍵名要求：必須使用 [${selectedIds.join(', ')}]。
-          輸出格式要求：僅返回一個 JSON Array，例如 [{"date": "2024-01", "sp500": 4800, "btc": 42000}]。
-          注意：價格必須是真實市場數據，嚴禁隨機生成。`,
+          輸出格式要求：僅返回一個 JSON Array，例如 [{"date": "2024-01", "sp500": 4800, "btc": 42000}]。`,
           config: { tools: [{ googleSearch: {} }] }
         });
         const text = response.text || '';
@@ -110,10 +107,9 @@ const FinancialDashboard: React.FC = () => {
           usedRealSource = true;
         }
       } catch (e) {
-        console.warn("Real-time search failed, using knowledge-base...");
+        console.warn("Real-time search failed...");
       }
 
-      // 降級方案：Schema 強制生成（如果搜尋失敗）
       if (!finalRawData) {
         const response = await ai.models.generateContent({
           model: 'gemini-3-flash-preview',
@@ -139,7 +135,6 @@ const FinancialDashboard: React.FC = () => {
       const processed = processRawData(finalRawData);
       
       if (processed && processed.length > 0) {
-        // 歸一化處理 (Normalization)
         const firstValid: any = {};
         selectedIds.forEach(id => {
           const firstPoint = processed.find(p => p[id] !== null && p[id] !== 0);
@@ -178,10 +173,8 @@ const FinancialDashboard: React.FC = () => {
         throw new Error("數據解析失敗");
       }
     } catch (err) {
-      console.error("Dashboard Sync Failed:", err);
-      setError("實時鏈結出現微小擾動，正在切換至內核備份模式...");
+      setError("正在切換至內核備份模式...");
       setDataSource('simulated');
-      // 高品質降噪模擬數據
       const fallback = Array.from({ length: 12 }).map((_, i) => {
         const d = new Date(now.getFullYear(), now.getMonth() - (11 - i), 1);
         const dp: any = { date: `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}` };
@@ -193,7 +186,7 @@ const FinancialDashboard: React.FC = () => {
         return dp;
       });
       setChartData(fallback);
-      setAiInsight("外界的數據傳輸偶爾會有波動，但市場的長期價值規律是恆定的。您的定力，就是您在波動中最穩定的資產。");
+      setAiInsight("外界的數據傳輸偶爾會有波動，但市場的長期價值規規律是恆定的。");
     } finally {
       setLoading(false);
     }

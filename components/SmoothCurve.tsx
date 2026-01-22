@@ -7,9 +7,9 @@ import { ChartDataPoint, AssetOption } from '../types';
 import { Loader2, RefreshCw, Compass, ArrowUpRight } from 'lucide-react';
 
 const ASSETS: AssetOption[] = [
-  { id: 'gold', label: '現貨黃金', query: 'Gold Spot Price USD historical monthly data 2021-2026' },
   { id: 'sp500', label: '標普500指數', query: 'S&P 500 Index historical trend 2021-2026' },
   { id: 'nasdaq', label: '納斯達克100', query: 'Nasdaq 100 Index historical trend 2021-2026' },
+  { id: 'dow', label: '道瓊斯指數', query: 'Dow Jones Industrial Average historical trend 2021-2026' },
   { id: 'bitcoin', label: '比特幣', query: 'Bitcoin BTC price history 2021-2026' }
 ];
 
@@ -32,11 +32,10 @@ const SmoothCurve: React.FC = () => {
     setLoading(true);
     if (force) localStorage.clear();
     try {
-      // 為了確保 2026 年金價 $4800 的準確性，我們直接調用校準過的 MockData
-      // AI 數據在 2025 年之前的真實性較高，但 2026 的「當前值」需要以校準值為準
+      // 調用 AI 獲取趨勢輔助數據
       const result = await fetchMarketTrend(activeAsset.query, startDate, todayStr);
       
-      // 無論 AI 是否返回，我們都以 getMockData 為視覺基準，因為它已經針對您的 2026 設定進行了硬核校準
+      // 視覺呈現統一使用校準過的 MockData 確保 2026 坐標的一致性
       const calibratedData = getMockData(activeAsset.id);
       setData(calibratedData);
     } catch (error) {
@@ -100,7 +99,6 @@ const SmoothCurve: React.FC = () => {
                     </defs>
                     <XAxis dataKey="date" hide />
                     <YAxis hide domain={['auto', 'auto']} />
-                    {/* 徹底移除 Tooltip，避免懸停數據干擾長線心態 */}
                     <Area 
                       type="monotone" 
                       dataKey="value" 
