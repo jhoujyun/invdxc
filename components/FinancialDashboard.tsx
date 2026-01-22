@@ -10,7 +10,7 @@ const ASSETS: AssetOption[] = [
   { id: 'sp500', label: '標普500', query: 'S&P 500 Index real historical monthly close price 2024-2025', color: '#6366f1' },
   { id: 'nasdaq', label: '納斯達克', query: 'Nasdaq 100 Index real historical monthly close price 2024-2025', color: '#10b981' },
   { id: 'dow', label: '道瓊斯', query: 'Dow Jones Industrial Average real historical monthly close price 2024-2025', color: '#f59e0b' },
-  { id: 'btc', label: '比特幣', query: 'Bitcoin (BTC/USD) real historical monthly price 2024-2025', color: '#f43f5e' },
+  { id: 'bitcoin', label: '比特幣', query: 'Bitcoin (BTC/USD) real historical monthly price 2024-2025', color: '#f43f5e' },
 ];
 
 const FinancialDashboard: React.FC = () => {
@@ -45,7 +45,8 @@ const FinancialDashboard: React.FC = () => {
           k.toLowerCase() === id.toLowerCase() || 
           k.toLowerCase().includes(id.toLowerCase()) ||
           (id === 'sp500' && k.toLowerCase().includes('s&p')) ||
-          (id === 'dow' && (k.toLowerCase().includes('dow') || k.toLowerCase().includes('dji')))
+          (id === 'dow' && (k.toLowerCase().includes('dow') || k.toLowerCase().includes('dji'))) ||
+          (id === 'bitcoin' && (k.toLowerCase().includes('btc') || k.toLowerCase().includes('bitcoin')))
         );
         newItem[id] = key ? cleanNumber(item[key]) : null;
       });
@@ -60,7 +61,7 @@ const FinancialDashboard: React.FC = () => {
     }
     
     const sortedIds = [...selectedIds].sort();
-    const cacheKey = `comp_v6_${sortedIds.join('_')}`;
+    const cacheKey = `comp_v7_${sortedIds.join('_')}`;
     
     if (forceRefresh) {
       localStorage.removeItem(cacheKey);
@@ -96,8 +97,8 @@ const FinancialDashboard: React.FC = () => {
           model: 'gemini-3-flash-preview',
           contents: `今天是 ${currentYearMonth}。請使用 Google Search 獲取這 ${selectedIds.length} 個資產的「真實每月收盤價」：${assetLabels}。
           時間範圍：過去 12 個月。
-          鍵名要求：必須使用 [${selectedIds.join(', ')}]。
-          輸出格式要求：僅返回一個 JSON Array，例如 [{"date": "2024-01", "sp500": 4800, "btc": 42000}]。`,
+          鍵名要求：必須嚴格使用 [${selectedIds.join(', ')}]。
+          輸出格式要求：僅返回一個 JSON Array。`,
           config: { tools: [{ googleSearch: {} }] }
         });
         const text = response.text || '';
@@ -113,7 +114,7 @@ const FinancialDashboard: React.FC = () => {
       if (!finalRawData) {
         const response = await ai.models.generateContent({
           model: 'gemini-3-flash-preview',
-          contents: `請估計並返回 ${assetLabels} 在過去 12 個月的每月收盤價格數據。`,
+          contents: `估計 ${assetLabels} 在過去 12 個月的每月收盤價格。`,
           config: {
             responseMimeType: "application/json",
             responseSchema: {
@@ -155,8 +156,8 @@ const FinancialDashboard: React.FC = () => {
 
         const insightResp = await ai.models.generateContent({
           model: 'gemini-3-flash-preview',
-          contents: `分析這組資產最近一年的歸一化表現（100為起點）：${JSON.stringify(normalized)}。`,
-          config: { systemInstruction: "你是一位優雅的財經導師，擅長從數據中看透時間的價值。請用簡短有力的話語給予投資者定力。" }
+          contents: `分析資產表現：${JSON.stringify(normalized)}。`,
+          config: { systemInstruction: "你是一位優雅的財經導師。請用簡短有力的繁體中文給予投資者定力。" }
         });
         
         const insight = insightResp.text || "時間是價值最好的洗滌劑。";
@@ -180,13 +181,13 @@ const FinancialDashboard: React.FC = () => {
         const dp: any = { date: `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}` };
         selectedIds.forEach((id, idx) => {
           const trend = 100 + i * (0.8 + idx * 0.2);
-          const noise = Math.sin(i * 0.5 + idx) * 2;
+          const noise = Math.sin(i * 0.5 + idx) * 1.5;
           dp[id] = Number((trend + noise).toFixed(2));
         });
         return dp;
       });
       setChartData(fallback);
-      setAiInsight("外界的數據傳輸偶爾會有波動，但市場的長期價值規規律是恆定的。");
+      setAiInsight("外界的數據傳輸偶爾會有波動，但市場的長期價值規律是恆定的。");
     } finally {
       setLoading(false);
     }
