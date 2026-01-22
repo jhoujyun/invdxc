@@ -33,33 +33,33 @@ export const getMockData = (assetId: string) => {
   const data = [];
   const now = new Date();
   
-  let endValue = 6000;
-  let startValue = 3300;
+  let endValue = 6100; // S&P 500 @ 2026
+  let startValue = 3700; // S&P 500 @ 2021
   
   if (assetId === 'nasdaq') {
-    endValue = 21500;
-    startValue = 11500;
-  } else if (assetId === 'gold') {
-    // 2026 年初黃金預估水位校準
-    endValue = 2850;
-    startValue = 1580;
+    endValue = 22000;
+    startValue = 12500;
+  } else if (assetId === 'dow') {
+    // 道瓊斯指數 2026 年初預期
+    endValue = 45000;
+    startValue = 30000;
   } else if (assetId === 'bitcoin') {
-    endValue = 105000;
-    startValue = 38000;
+    endValue = 108000;
+    startValue = 32000;
   }
 
-  for (let i = 59; i >= 0; i--) {
+  for (let i = 60; i >= 0; i--) {
     const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
     const progress = (60 - i) / 60;
     
-    // 建立一個穩健向上的長線曲線
-    const trend = startValue + (endValue - startValue) * Math.pow(progress, 1.15);
-    const wave = Math.sin(progress * 10) * (endValue * 0.035);
-    const noise = (Math.random() - 0.5) * (endValue * 0.015);
+    // 使用非線性曲線呈現長線增長感
+    const trend = startValue + (endValue - startValue) * Math.pow(progress, 1.4);
+    // 輕微的隨機波動，讓曲線更有「生命感」而非直線
+    const noise = (Math.random() - 0.5) * (endValue * 0.02);
     
     data.push({
       date: `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`,
-      value: Number((trend + wave + noise).toFixed(2))
+      value: Number((trend + noise).toFixed(2))
     });
   }
   return data;
