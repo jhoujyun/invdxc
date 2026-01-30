@@ -11,10 +11,7 @@ const SUPPORT_CONFIG = {
   // 1. PayPal.me 格式 (例如 john123)
   PAYPAL_ID: 'fanhaiyang62', 
   
-  // 2. Ko-fi 使用者名稱 (例如 yourname)
-  KOFI_ID: 'YOUR_KOFI_ID',     
-
-  // 3. Wise (TransferWise) 支付連結 ID (例如 yourname123)
+  // 2. Wise (TransferWise) 支付連結 ID (例如 yourname123)
   // 前往 https://wise.com/share/me 獲取您的個人支付連結 ID
   WISE_ID: 'jod6saf',
 };
@@ -45,15 +42,6 @@ const PLATFORMS: PaymentPlatform[] = [
     color: 'text-blue-600',
     bgColor: 'bg-blue-50',
     urlPattern: (a) => `https://www.paypal.me/${SUPPORT_CONFIG.PAYPAL_ID}/${a}`
-  },
-  {
-    id: 'kofi',
-    name: 'Ko-fi',
-    description: '無手續費的創作支持',
-    icon: <Heart size={20} />,
-    color: 'text-rose-600',
-    bgColor: 'bg-rose-50',
-    urlPattern: (a) => `https://ko-fi.com/${SUPPORT_CONFIG.KOFI_ID}?amount=${a}`
   },
   {
     id: 'wise',
