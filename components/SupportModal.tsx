@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { X, Heart, ShieldCheck, ChevronLeft, CreditCard, ExternalLink, Sparkles } from 'lucide-react';
+import { X, Heart, ShieldCheck, ChevronLeft, CreditCard, ExternalLink, Sparkles, Landmark } from 'lucide-react';
 
 /**
  * ==========================================
@@ -8,13 +8,15 @@ import { X, Heart, ShieldCheck, ChevronLeft, CreditCard, ExternalLink, Sparkles 
  * ==========================================
  */
 const SUPPORT_CONFIG = {
-  // 正確格式為 PayPal.me (中間有點)
-  // 1. 前往 https://www.paypal.com/paypalme/ 創建您的 ID
-  // 2. 將創建好的 ID（例如 john123）填寫在下方
+  // 1. PayPal.me 格式 (例如 john123)
   PAYPAL_ID: 'fanhaiyang62', 
   
-  // 將 'YOUR_KOFI_ID' 替換為您的 Ko-fi 使用者名稱
+  // 2. Ko-fi 使用者名稱 (例如 yourname)
   KOFI_ID: 'YOUR_KOFI_ID',     
+
+  // 3. Wise (TransferWise) 支付連結 ID (例如 yourname123)
+  // 前往 https://wise.com/share/me 獲取您的個人支付連結 ID
+  WISE_ID: 'jod6saf',
 };
 
 interface SupportModalProps {
@@ -52,6 +54,15 @@ const PLATFORMS: PaymentPlatform[] = [
     color: 'text-rose-600',
     bgColor: 'bg-rose-50',
     urlPattern: (a) => `https://ko-fi.com/${SUPPORT_CONFIG.KOFI_ID}?amount=${a}`
+  },
+  {
+    id: 'wise',
+    name: 'Wise',
+    description: '跨國匯率最優的支持方式',
+    icon: <Landmark size={20} />,
+    color: 'text-cyan-600',
+    bgColor: 'bg-cyan-50',
+    urlPattern: () => `https://wise.com/pay/me/${SUPPORT_CONFIG.WISE_ID}`
   }
 ];
 
@@ -138,7 +149,7 @@ const SupportModal: React.FC<SupportModalProps> = ({ isOpen, onClose }) => {
 
             <h3 className="text-xl font-bold text-slate-900 mb-6 tracking-widest uppercase">支持平台</h3>
             
-            <div className="space-y-4">
+            <div className="space-y-4 max-h-[40vh] overflow-y-auto pr-2 custom-scrollbar">
               {PLATFORMS.map((platform) => (
                 <button
                   key={platform.id}
