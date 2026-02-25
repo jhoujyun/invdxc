@@ -9,7 +9,7 @@ import { X, Heart, ShieldCheck, ChevronLeft, CreditCard, ExternalLink, Sparkles,
  */
 const SUPPORT_CONFIG = {
   // 1. PayPal.me 格式 (例如 john123)
-  PAYPAL_ID: 'fanhaiyang62', 
+  PAYPAL_ID: 'hy628', 
   
   // 2. Wise (TransferWise) 支付連結 ID (例如 yourname123)
   // 前往 https://wise.com/share/me 獲取您的個人支付連結 ID
